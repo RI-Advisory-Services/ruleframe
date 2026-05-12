@@ -1,0 +1,22 @@
+version: 1
+rules:
+  - id: qaqc_unresolved_issue
+    name: QA/QC unresolved issue
+    severity: error
+    fail_when:
+      all:
+        - column: Selected for QA/QC
+          equals: "Yes"
+        - column: Issues noted during QA/QC appointment?
+          equals: "Yes"
+        - column: QA/QC Resolved
+          is_blank: true
+    message: QA/QC was selected and issues were noted, but QA/QC Resolved is blank.
+
+  - id: missing_customer_status
+    name: Customer status missing
+    severity: warning
+    fail_when:
+      column: Customer Status
+      is_blank: true
+    message: Customer Status is blank.
