@@ -25,7 +25,7 @@ htmlcov/
 .ipynb_checkpoints/
 
 # Local scratch work
-scratch/
+scratch/*
 
 # OS/editor
 .DS_Store

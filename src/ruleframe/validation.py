@@ -19,23 +19,23 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
     messages_by_row: dict[int, list[str]] = defaultdict(list)
     annotated = df.copy()
 
-    for idx, row in annotated.iterrows():
+    for row_pos, (_, row) in enumerate(annotated.iterrows()):
         for rule in bundle.rules:
             if _rule_fails(row, rule):
                 message = str(rule.get("message", "Rule failed"))
                 findings.append(
                     Finding(
-                        row_index=int(idx),
+                        row_index=row_pos,
                         rule_id=str(rule.get("id", "unknown_rule")),
                         rule_name=rule.get("name"),
                         severity=str(rule.get("severity", "error")),
                         message=message,
                     )
                 )
-                messages_by_row[int(idx)].append(message)
+                messages_by_row[row_pos].append(message)
 
     annotated["Validation Errors"] = [
-        " | ".join(messages_by_row.get(int(i), [])) for i in annotated.index
+        " | ".join(messages_by_row.get(i, [])) for i, _ in enumerate(annotated.index)
     ]
     return ValidationResult(annotated=annotated, findings=findings)
 
@@ -61,7 +61,7 @@ def _evaluate_condition(row: pd.Series, condition: dict) -> bool:
     value = row.get(column)
 
     if "equals" in condition:
-        return value == condition["equals"]
+        return bool(value == condition["equals"])
     if "is_blank" in condition:
         if not condition["is_blank"]:
             return False
