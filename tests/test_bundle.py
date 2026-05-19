@@ -9,7 +9,7 @@ rules:
   - id: r1
     fail_when:
       column: A
-      equals: Yes
+      equals: "Yes"
 """
     )
     assert bundle.version == 1
