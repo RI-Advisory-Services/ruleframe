@@ -1,70 +1,91 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Any
 
 import pandas as pd
+from jsonlogic import JSONLogicExpression
+from jsonlogic.evaluation import evaluate
 
 from .bundle import RuleBundle
+from .compiler import collect_rule_columns, compile_rule
+from .exceptions import InputSchemaError
+from .operators import build_registry
 from .result import Finding, ValidationResult
 
 
 def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult:
-    """Minimal v0 validation loop based on simple equals and is_blank operators.
+    """Validate a DataFrame by compiling friendly rules to JsonLogic."""
 
-    This intentionally starts small so the test harness and API are stable while
-    we build out full JsonLogic compilation and operator coverage.
-    """
+    missing = missing_rule_columns(df, bundle)
+    if missing:
+        raise InputSchemaError("Input is missing required rule column(s): " + ", ".join(missing))
+
+    registry = build_registry()
+    compiled_rules = [
+        (rule, JSONLogicExpression.from_json(compile_rule(rule)).as_operator_tree(registry))
+        for rule in bundle.rules
+    ]
 
     findings: list[Finding] = []
     messages_by_row: dict[int, list[str]] = defaultdict(list)
-    annotated = df.copy()
+    annotated = _with_row_id(df, bundle)
 
     for row_pos, (_, row) in enumerate(annotated.iterrows()):
-        for rule in bundle.rules:
-            if _rule_fails(row, rule):
-                message = str(rule.get("message", "Rule failed"))
-                findings.append(
-                    Finding(
-                        row_index=row_pos,
-                        rule_id=str(rule.get("id", "unknown_rule")),
-                        rule_name=rule.get("name"),
-                        severity=str(rule.get("severity", "error")),
-                        message=message,
-                    )
-                )
-                messages_by_row[row_pos].append(message)
+        row_data = _row_to_json_data(row)
+        for rule, operator_tree in compiled_rules:
+            if not bool(evaluate(operator_tree, row_data, None)):
+                continue
 
-    annotated["Validation Errors"] = [
+            message = str(rule.get("message", "Rule failed"))
+            findings.append(
+                Finding(
+                    row_index=row_pos,
+                    rule_id=str(rule.get("id", "unknown_rule")),
+                    rule_name=rule.get("name"),
+                    severity=str(rule.get("severity", "error")),
+                    message=message,
+                )
+            )
+            messages_by_row[row_pos].append(message)
+
+    annotated[_validation_errors_column(bundle)] = [
         " | ".join(messages_by_row.get(i, [])) for i, _ in enumerate(annotated.index)
     ]
     return ValidationResult(annotated=annotated, findings=findings)
 
 
-def _rule_fails(row: pd.Series, rule: dict) -> bool:
-    fail_when = rule.get("fail_when")
-    if not isinstance(fail_when, dict):
-        return False
-    return _evaluate_condition(row, fail_when)
+def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
+    required = collect_rule_columns(bundle.rules)
+    generated = {_row_id_column(bundle)} if _row_id_column(bundle) else set()
+    return sorted(required - set(df.columns) - generated)
 
 
-def _evaluate_condition(row: pd.Series, condition: dict) -> bool:
-    if "all" in condition:
-        return all(_evaluate_condition(row, child) for child in condition.get("all", []))
-    if "any" in condition:
-        return any(_evaluate_condition(row, child) for child in condition.get("any", []))
-    if "not" in condition:
-        return not _evaluate_condition(row, condition["not"])
+def _row_to_json_data(row: pd.Series) -> dict[str, Any]:
+    return row.where(pd.notna(row), None).to_dict()
 
-    column = condition.get("column")
-    if column is None:
-        return False
-    value = row.get(column)
 
-    if "equals" in condition:
-        return bool(value == condition["equals"])
-    if "is_blank" in condition:
-        if not condition["is_blank"]:
-            return False
-        return value is None or (isinstance(value, str) and value.strip() == "") or pd.isna(value)
+def _with_row_id(df: pd.DataFrame, bundle: RuleBundle) -> pd.DataFrame:
+    row_id_column = _row_id_column(bundle)
+    annotated = df.copy()
+    if row_id_column and row_id_column not in annotated.columns:
+        annotated.insert(0, row_id_column, range(1, len(annotated) + 1))
+    return annotated
 
-    return False
+
+def _row_id_column(bundle: RuleBundle) -> str | None:
+    settings = bundle.raw.get("settings")
+    if not isinstance(settings, dict):
+        return None
+    row_id = settings.get("row_id")
+    if not isinstance(row_id, dict):
+        return None
+    column = row_id.get("column")
+    return str(column) if column else None
+
+
+def _validation_errors_column(bundle: RuleBundle) -> str:
+    settings = bundle.raw.get("settings")
+    if isinstance(settings, dict) and settings.get("validation_errors_column"):
+        return str(settings["validation_errors_column"])
+    return "Validation Errors"
