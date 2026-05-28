@@ -9,6 +9,11 @@ from jsonlogic.evaluation import evaluate
 
 from .bundle import RuleBundle
 from .compiler import collect_rule_columns, compile_rule
+from .computed import (
+    apply_computed_columns,
+    collect_computed_column_names,
+    collect_computed_source_columns,
+)
 from .exceptions import InputSchemaError
 from .operators import build_registry
 from .result import Finding, ValidationResult
@@ -21,6 +26,8 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
     if missing:
         raise InputSchemaError("Input is missing required rule column(s): " + ", ".join(missing))
 
+    working_df = apply_computed_columns(df, bundle.computed_columns)
+
     registry = build_registry()
     compiled_rules = [
         (rule, JSONLogicExpression.from_json(compile_rule(rule)).as_operator_tree(registry))
@@ -29,7 +36,7 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
 
     findings: list[Finding] = []
     messages_by_row: dict[int, list[str]] = defaultdict(list)
-    annotated = _with_row_id(df, bundle)
+    annotated = _with_row_id(working_df, bundle)
 
     for row_pos, (_, row) in enumerate(annotated.iterrows()):
         row_data = _row_to_json_data(row)
@@ -57,8 +64,13 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
 
 def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
     required = collect_rule_columns(bundle.rules)
-    generated = {_row_id_column(bundle)} if _row_id_column(bundle) else set()
-    return sorted(required - set(df.columns) - generated)
+    generated = collect_computed_column_names(bundle.computed_columns)
+    if row_id_column := _row_id_column(bundle):
+        generated.add(row_id_column)
+
+    source_columns = collect_computed_source_columns(bundle.computed_columns)
+    required_input_columns = (required - generated) | source_columns
+    return sorted(required_input_columns - set(df.columns))
 
 
 def _row_to_json_data(row: pd.Series) -> dict[str, Any]:

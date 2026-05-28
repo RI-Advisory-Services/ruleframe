@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+COLUMN_REFERENCE_OPERATORS = {
+    "equals_column": "==",
+    "not_equals_column": "!=",
+}
+
 
 def json_pointer(column_name: str) -> str:
     """Convert a DataFrame column name to a JSON Pointer variable path."""
@@ -34,10 +39,10 @@ def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
         return {"==": [column_var, expected]}
     if op == "not_equals":
         return {"!=": [column_var, expected]}
-    if op == "equals_column":
-        return {"==": [column_var, {"var": json_pointer(str(expected))}]}
-    if op == "not_equals_column":
-        return {"!=": [column_var, {"var": json_pointer(str(expected))}]}
+    if op in COLUMN_REFERENCE_OPERATORS:
+        return {
+            COLUMN_REFERENCE_OPERATORS[op]: [column_var, {"var": json_pointer(str(expected))}]
+        }
     if op == "greater_than":
         return {">": [column_var, expected]}
     if op == "greater_than_or_equal":
@@ -97,7 +102,7 @@ def collect_required_columns(condition: dict[str, Any]) -> set[str]:
     for key, value in condition.items():
         if key == "column":
             continue
-        if key in {"equals_column", "not_equals_column"}:
+        if key in COLUMN_REFERENCE_OPERATORS:
             columns.add(str(value))
         elif isinstance(value, dict) and "column" in value:
             columns.add(str(value["column"]))

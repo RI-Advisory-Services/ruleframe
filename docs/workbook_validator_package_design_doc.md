@@ -36,7 +36,7 @@ The package should expose a simple library API:
 ```python
 from ruleframe import RuleBundle, validate_dataframe
 
-bundle = RuleBundle.from_yaml(rules_yaml)
+bundle = RuleBundle.from_yaml("rules.yaml")
 result = validate_dataframe(df, bundle)
 ```
 

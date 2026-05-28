@@ -1,0 +1,4 @@
+Record ID,Application Status,Manual Review Required,Priority Review,Installation Date,Date Inspected,Installed Quantity,Reported Quantity,Issue Category,QA/QC Resolved
+1,Active,No,No,2026-01-01,2026-01-05,10,10,None,Yes
+2,Cancelled,Yes,No,2026-02-01,2026-02-20,5,5,Documentation,
+3,Active,Yes,No,2026-03-01,2026-04-10,8,9,Safety,

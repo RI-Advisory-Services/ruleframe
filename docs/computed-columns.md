@@ -1,4 +1,4 @@
-# Computed Columns (v1 target)
+# Computed Columns (v1)
 
 Computed columns are generated before rule evaluation and then treated like normal input columns.
 
@@ -15,9 +15,12 @@ computed_columns:
       - Total Measure Gross Therms
 ```
 
-## Planned v1 Types
+## Supported Types
 
 - `sum`
+
+## Planned Types
+
 - `subtract`
 - `multiply`
 - `divide`

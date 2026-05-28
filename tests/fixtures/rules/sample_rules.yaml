@@ -20,3 +20,42 @@ rules:
       column: Customer Status
       is_blank: true
     message: Customer Status is blank.
+
+  - id: review_required_without_priority
+    name: Manual review required without priority review
+    severity: warning
+    fail_when:
+      all:
+        - column: Manual Review Required
+          equals: "Yes"
+        - not:
+            column: Priority Review
+            equals: "Yes"
+    message: Manual review is required, but Priority Review is not Yes.
+
+  - id: active_quantity_mismatch
+    name: Active application quantity mismatch
+    severity: error
+    fail_when:
+      all:
+        - any:
+            - column: Application Status
+              equals: Active
+            - column: Application Status
+              equals: Completed
+        - column: Installed Quantity
+          not_equals_column: Reported Quantity
+    message: Installed Quantity does not match Reported Quantity for an active application.
+
+  - id: late_active_inspection
+    name: Active application late inspection
+    severity: error
+    fail_when:
+      all:
+        - column: Application Status
+          equals: Active
+        - column: Installation Date
+          days_apart_greater_than:
+            column: Date Inspected
+            days: 31
+    message: Active application inspection happened more than 31 days from installation.

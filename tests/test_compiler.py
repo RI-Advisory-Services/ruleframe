@@ -1,4 +1,9 @@
-from ruleframe.compiler import collect_required_columns, compile_condition, json_pointer
+from ruleframe.compiler import (
+    COLUMN_REFERENCE_OPERATORS,
+    collect_required_columns,
+    compile_condition,
+    json_pointer,
+)
 
 
 def test_json_pointer_escapes_excel_column_names() -> None:
@@ -39,4 +44,11 @@ def test_collect_required_columns_includes_column_to_column_references() -> None
         "Reported Quantity",
         "Installation Date",
         "Date Inspected",
+    }
+
+
+def test_column_reference_operators_are_centralized() -> None:
+    assert COLUMN_REFERENCE_OPERATORS == {
+        "equals_column": "==",
+        "not_equals_column": "!=",
     }
