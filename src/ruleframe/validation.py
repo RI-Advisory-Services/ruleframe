@@ -69,7 +69,9 @@ def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
         generated.add(row_id_column)
 
     source_columns = collect_computed_source_columns(bundle.computed_columns)
-    required_input_columns = (required - generated) | source_columns
+    # A generated column may be used as input to a later computed column (chained).
+    # Only columns that are NOT themselves generated must be present in the input DataFrame.
+    required_input_columns = (required - generated) | (source_columns - generated)
     return sorted(required_input_columns - set(df.columns))
 
 

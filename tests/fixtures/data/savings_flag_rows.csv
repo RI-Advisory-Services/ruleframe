@@ -1,0 +1,7 @@
+Row ID,kWh,kW,Therms,Notes
+R1,0,0,0,all zero
+R2,,,,all blank
+R3,0,,0,mix blank and zero
+R4,1,0,0,one nonzero
+R5,0,0,5,one nonzero therm
+R6,0,0,,blank therm but others zero

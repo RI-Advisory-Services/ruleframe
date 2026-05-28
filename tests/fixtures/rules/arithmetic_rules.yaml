@@ -1,0 +1,52 @@
+version: 1
+
+computed_columns:
+  # divide: output / input ratio; zero input → NaN
+  - id: output_input_ratio
+    name: Output Input Ratio
+    type: divide
+    columns:
+      - Output BTU
+      - Input BTU
+
+  # sum: add kWh + Therm + kW savings
+  - id: total_savings
+    name: Total Savings
+    type: sum
+    columns:
+      - kWh Savings
+      - Therm Savings
+      - kW Savings
+
+  # subtract: total_savings minus reported
+  - id: savings_variance
+    name: Savings Variance
+    type: subtract
+    columns:
+      - Total Savings
+      - Reported Total
+
+  # multiply: output * input
+  - id: output_times_input
+    name: Output Times Input
+    type: multiply
+    columns:
+      - Output BTU
+      - Input BTU
+
+rules:
+  - id: ratio_too_high
+    name: Ratio too high
+    severity: warning
+    fail_when:
+      column: Output Input Ratio
+      greater_than: 2.5
+    message: Output/Input ratio exceeds 2.5.
+
+  - id: savings_variance_nonzero
+    name: Savings variance is nonzero
+    severity: error
+    fail_when:
+      column: Savings Variance
+      not_equals: 0
+    message: Total Savings does not match Reported Total.

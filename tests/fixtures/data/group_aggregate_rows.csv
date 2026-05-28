@@ -1,0 +1,9 @@
+Project ID,Measure Type,kWh,Cost,Incentive,Notes
+P1,BEF,100,500,,Fan A
+P1,BEF,50,200,,Fan B
+P1,LED,30,100,,Light
+P2,BEF,80,400,,Fan C
+P2,H&S,0,0,300,Safety work
+P3,LED,20,80,,Light only
+P3,H&S,0,0,150,Safety B
+P3,H&S,0,0,100,Safety C

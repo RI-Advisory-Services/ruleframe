@@ -1,0 +1,47 @@
+version: 1
+
+computed_columns:
+  # date_diff: days from Installation Date to Date Inspected
+  - id: days_to_inspection
+    name: Days to Inspection
+    type: date_diff
+    start_column: Installation Date
+    end_column: Date Inspected
+
+  # days_since_today: days since Installation Date (today injected in test)
+  - id: days_since_install
+    name: Days Since Installation
+    type: days_since_today
+    column: Installation Date
+
+  # years_since_year: age of system from Installation Year
+  - id: system_age
+    name: System Age
+    type: years_since_year
+    column: Installation Year
+
+  # coalesce: use Date Inspected, fall back to Alt Date A, then Alt Date B
+  - id: best_available_date
+    name: Best Available Date
+    type: coalesce
+    columns:
+      - Date Inspected
+      - Alt Date A
+      - Alt Date B
+
+rules:
+  - id: inspection_too_late
+    name: Inspection too late after installation
+    severity: warning
+    fail_when:
+      column: Days to Inspection
+      greater_than: 30
+    message: More than 30 days elapsed between installation and inspection.
+
+  - id: old_system
+    name: System is old
+    severity: warning
+    fail_when:
+      column: System Age
+      greater_than: 20
+    message: System is more than 20 years old.

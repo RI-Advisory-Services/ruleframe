@@ -38,3 +38,43 @@ def computed_savings_df() -> pd.DataFrame:
 @pytest.fixture
 def computed_savings_bundle() -> RuleBundle:
     return RuleBundle.from_yaml(RULES / "computed_savings_rules.yaml")
+
+
+@pytest.fixture
+def arithmetic_df() -> pd.DataFrame:
+    return pd.read_csv(DATA / "arithmetic_rows.csv")
+
+
+@pytest.fixture
+def arithmetic_bundle() -> RuleBundle:
+    return RuleBundle.from_yaml(RULES / "arithmetic_rules.yaml")
+
+
+@pytest.fixture
+def group_aggregate_df() -> pd.DataFrame:
+    return pd.read_csv(DATA / "group_aggregate_rows.csv")
+
+
+@pytest.fixture
+def group_aggregate_bundle() -> RuleBundle:
+    return RuleBundle.from_yaml(RULES / "group_aggregate_rules.yaml")
+
+
+@pytest.fixture
+def date_df() -> pd.DataFrame:
+    return pd.read_csv(DATA / "date_rows.csv")
+
+
+@pytest.fixture
+def date_bundle() -> RuleBundle:
+    return RuleBundle.from_yaml(RULES / "date_rules.yaml")
+
+
+@pytest.fixture
+def savings_flag_df() -> pd.DataFrame:
+    return pd.read_csv(DATA / "savings_flag_rows.csv")
+
+
+@pytest.fixture
+def savings_flag_bundle() -> RuleBundle:
+    return RuleBundle.from_yaml(RULES / "savings_flag_rules.yaml")

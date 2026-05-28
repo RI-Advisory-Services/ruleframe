@@ -208,6 +208,62 @@ class DateDaysApartGreaterThan(Operator):
         return abs((right - left).days) > int(days)
 
 
+@dataclass
+class NullSafeComparison(Operator):
+    """Wraps a two-argument comparison so that None on either side returns False."""
+
+    left: OperatorArgument
+    right: OperatorArgument
+    _func: Any  # callable (left, right) -> bool — stored at class level per subclass
+
+    @classmethod
+    def from_expression(cls, operator: str, arguments: list[OperatorArgument]):
+        if len(arguments) != 2:
+            raise JSONLogicSyntaxError(f"{operator!r} expects two arguments, got {len(arguments)}")
+        return cls(operator=operator, left=arguments[0], right=arguments[1], _func=cls._op)
+
+    def typecheck(self, context) -> JSONSchemaType:
+        for value in (self.left, self.right):
+            if isinstance(value, Operator):
+                value.typecheck(context)
+        return BooleanType()
+
+    def evaluate(self, context: EvaluationContext) -> bool:
+        left = get_value(self.left, context)
+        right = get_value(self.right, context)
+        if left is None or right is None:
+            return False
+        try:
+            return bool(self._func(left, right))
+        except TypeError:
+            return False
+
+
+class NullSafeEq(NullSafeComparison):
+    _op = staticmethod(lambda a, b: a == b)
+
+
+class NullSafeNotEq(NullSafeComparison):
+    """Returns False (not a finding) when either side is None."""
+    _op = staticmethod(lambda a, b: a != b)
+
+
+class NullSafeGt(NullSafeComparison):
+    _op = staticmethod(lambda a, b: a > b)
+
+
+class NullSafeGte(NullSafeComparison):
+    _op = staticmethod(lambda a, b: a >= b)
+
+
+class NullSafeLt(NullSafeComparison):
+    _op = staticmethod(lambda a, b: a < b)
+
+
+class NullSafeLte(NullSafeComparison):
+    _op = staticmethod(lambda a, b: a <= b)
+
+
 def build_registry() -> OperatorRegistry:
     """Build RuleFrame's default validation-oriented JsonLogic registry."""
 
@@ -221,6 +277,13 @@ def build_registry() -> OperatorRegistry:
     registry.register("date_days_apart_gt", DateDaysApartGreaterThan)
     registry.register("is_blank", IsBlank)
     registry.register("is_not_blank", IsNotBlank)
+    # Null-safe comparisons: if either operand is None the rule does not fire.
+    registry.register("==", NullSafeEq, force=True)
+    registry.register("!=", NullSafeNotEq, force=True)
+    registry.register(">", NullSafeGt, force=True)
+    registry.register(">=", NullSafeGte, force=True)
+    registry.register("<", NullSafeLt, force=True)
+    registry.register("<=", NullSafeLte, force=True)
     return registry
 
 
