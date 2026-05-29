@@ -9,6 +9,23 @@ from dateutil import parser as date_parser
 from .exceptions import BundleValidationError
 
 
+VALID_COMPUTED_TYPES = frozenset(
+    {
+        "sum",
+        "subtract",
+        "multiply",
+        "divide",
+        "coalesce",
+        "group_sum",
+        "group_count",
+        "date_diff",
+        "days_since_today",
+        "years_since_year",
+        "all_blank_or_zero",
+    }
+)
+
+
 def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
     """Raise BundleValidationError if computed column specs contain structural problems.
 
@@ -26,6 +43,12 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
 
     for spec in specs:
         name = computed_column_name(spec)
+        column_type = spec.get("type")
+        if column_type not in VALID_COMPUTED_TYPES:
+            raise BundleValidationError(
+                f"Computed column {name!r} has unsupported type: {column_type!r}. "
+                f"Valid types are: {', '.join(sorted(VALID_COMPUTED_TYPES))}"
+            )
         inputs = required_input_columns(spec)
         generated_deps = inputs & all_names
         deps[name] = generated_deps
@@ -120,7 +143,7 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return _compute_years_since_year(df, spec)
     if column_type == "all_blank_or_zero":
         return _compute_all_blank_or_zero(df, spec)
-    raise ValueError(f"Unsupported computed column type: {column_type}")
+    raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 
 
 def _compute_group_sum(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:

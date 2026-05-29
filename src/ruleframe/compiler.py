@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .exceptions import BundleValidationError
+
 COLUMN_REFERENCE_OPERATORS = {
     "equals_column": "==",
     "not_equals_column": "!=",
@@ -25,12 +27,12 @@ def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
         return {"!": [compile_condition(condition["not"])]}
 
     if "column" not in condition:
-        raise ValueError(f"Condition must contain 'column' or a logic node: {condition}")
+        raise BundleValidationError(f"Condition must contain 'column' or a logic node: {condition}")
 
     column_var = {"var": json_pointer(str(condition["column"]))}
     operator_keys = [key for key in condition if key != "column"]
     if len(operator_keys) != 1:
-        raise ValueError(f"Condition must contain exactly one operator: {condition}")
+        raise BundleValidationError(f"Condition must contain exactly one operator: {condition}")
 
     op = operator_keys[0]
     expected = condition[op]
@@ -76,7 +78,7 @@ def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
             ]
         }
 
-    raise ValueError(f"Unsupported friendly operator: {op}")
+    raise BundleValidationError(f"Unsupported friendly operator: {op}")
 
 
 def compile_rule(rule: dict[str, Any]) -> dict[str, Any]:
@@ -84,7 +86,7 @@ def compile_rule(rule: dict[str, Any]) -> dict[str, Any]:
 
     fail_when = rule.get("fail_when")
     if not isinstance(fail_when, dict):
-        raise ValueError(f"Rule {rule.get('id', '<unknown>')!r} must contain a fail_when object")
+        raise BundleValidationError(f"Rule {rule.get('id', '<unknown>')!r} must contain a fail_when object")
     return compile_condition(fail_when)
 
 

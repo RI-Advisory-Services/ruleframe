@@ -1,9 +1,14 @@
+import pytest
+
 from ruleframe.compiler import (
     COLUMN_REFERENCE_OPERATORS,
     collect_required_columns,
+    collect_rule_columns,
     compile_condition,
+    compile_rule,
     json_pointer,
 )
+from ruleframe.exceptions import BundleValidationError
 
 
 def test_json_pointer_escapes_excel_column_names() -> None:
@@ -52,3 +57,71 @@ def test_column_reference_operators_are_centralized() -> None:
         "equals_column": "==",
         "not_equals_column": "!=",
     }
+
+
+# ===========================================================================
+# compile_rule direct tests
+# ===========================================================================
+
+
+def test_compile_rule_produces_jsonlogic() -> None:
+    rule = {
+        "id": "r1",
+        "fail_when": {"column": "Status", "equals": "Error"},
+    }
+    assert compile_rule(rule) == {"==": [{"var": "/Status"}, "Error"]}
+
+
+def test_compile_rule_missing_fail_when_raises() -> None:
+    with pytest.raises(BundleValidationError, match="fail_when"):
+        compile_rule({"id": "r1", "message": "no fail_when here"})
+
+
+def test_compile_rule_non_dict_fail_when_raises() -> None:
+    with pytest.raises(BundleValidationError, match="fail_when"):
+        compile_rule({"id": "r1", "fail_when": "column: Status"})
+
+
+# ===========================================================================
+# compile_condition error cases
+# ===========================================================================
+
+
+def test_compile_condition_unsupported_operator_raises() -> None:
+    with pytest.raises(BundleValidationError, match="Unsupported friendly operator"):
+        compile_condition({"column": "Status", "fuzzy_match": "Active"})
+
+
+def test_compile_condition_missing_column_raises() -> None:
+    with pytest.raises(BundleValidationError, match="'column'"):
+        compile_condition({"equals": "something"})
+
+
+def test_compile_condition_multiple_operators_raises() -> None:
+    with pytest.raises(BundleValidationError, match="exactly one operator"):
+        compile_condition({"column": "Status", "equals": "A", "not_equals": "B"})
+
+
+# ===========================================================================
+# collect_rule_columns direct tests
+# ===========================================================================
+
+
+def test_collect_rule_columns_aggregates_across_rules() -> None:
+    rules = [
+        {"id": "r1", "fail_when": {"column": "A", "equals": "Yes"}},
+        {"id": "r2", "fail_when": {"column": "B", "greater_than": 0}},
+    ]
+    assert collect_rule_columns(rules) == {"A", "B"}
+
+
+def test_collect_rule_columns_skips_rules_without_fail_when() -> None:
+    rules = [
+        {"id": "r1", "fail_when": {"column": "A", "equals": "Yes"}},
+        {"id": "r2"},  # no fail_when
+    ]
+    assert collect_rule_columns(rules) == {"A"}
+
+
+def test_collect_rule_columns_empty_rules() -> None:
+    assert collect_rule_columns([]) == set()

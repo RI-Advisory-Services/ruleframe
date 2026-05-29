@@ -57,6 +57,12 @@ def test_guard_valid_chain_does_not_raise() -> None:
     validate_computed_column_specs(specs)  # should not raise
 
 
+def test_guard_unsupported_type_raises() -> None:
+    specs = [{"type": "percentile", "columns": ["A", "B"], "id": "pct", "name": "Percentile"}]
+    with pytest.raises(BundleValidationError, match="unsupported type"):
+        validate_computed_column_specs(specs)
+
+
 # ===========================================================================
 # Unit tests: small inline DataFrames for edge cases
 # ===========================================================================
