@@ -7,6 +7,10 @@ from .exceptions import BundleValidationError
 COLUMN_REFERENCE_OPERATORS = {
     "equals_column": "==",
     "not_equals_column": "!=",
+    "greater_than_column": ">",
+    "greater_than_or_equal_column": ">=",
+    "less_than_column": "<",
+    "less_than_or_equal_column": "<=",
 }
 
 

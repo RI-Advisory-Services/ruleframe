@@ -56,6 +56,10 @@ def test_column_reference_operators_are_centralized() -> None:
     assert COLUMN_REFERENCE_OPERATORS == {
         "equals_column": "==",
         "not_equals_column": "!=",
+        "greater_than_column": ">",
+        "greater_than_or_equal_column": ">=",
+        "less_than_column": "<",
+        "less_than_or_equal_column": "<=",
     }
 
 
