@@ -13,6 +13,7 @@ from .computed import (
     apply_computed_columns,
     collect_computed_column_names,
     collect_computed_source_columns,
+    validate_computed_column_specs,
 )
 from .exceptions import InputSchemaError
 from .operators import build_registry
@@ -21,6 +22,15 @@ from .result import Finding, ValidationResult
 
 def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult:
     """Validate a DataFrame by compiling friendly rules to JsonLogic."""
+
+    validate_computed_column_specs(bundle.computed_columns)
+
+    collisions = computed_column_name_collisions(df, bundle)
+    if collisions:
+        raise InputSchemaError(
+            "Computed column name(s) collide with existing input column(s): "
+            + ", ".join(collisions)
+        )
 
     missing = missing_rule_columns(df, bundle)
     if missing:
@@ -73,6 +83,12 @@ def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
     # Only columns that are NOT themselves generated must be present in the input DataFrame.
     required_input_columns = (required - generated) | (source_columns - generated)
     return sorted(required_input_columns - set(df.columns))
+
+
+def computed_column_name_collisions(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
+    """Return generated column names that already exist in the input DataFrame."""
+    generated = collect_computed_column_names(bundle.computed_columns)
+    return sorted(generated & set(df.columns))
 
 
 def _row_to_json_data(row: pd.Series) -> dict[str, Any]:

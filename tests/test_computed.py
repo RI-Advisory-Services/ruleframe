@@ -10,7 +10,51 @@ from ruleframe.computed import (
     collect_computed_source_columns,
     compute_column,
     required_input_columns,
+    validate_computed_column_specs,
 )
+from ruleframe.exceptions import BundleValidationError
+
+
+# ===========================================================================
+# Guard tests: validate_computed_column_specs and name collision
+# ===========================================================================
+
+
+def test_guard_self_reference_raises() -> None:
+    specs = [{"type": "sum", "columns": ["A", "My Total"], "id": "my_total", "name": "My Total"}]
+    with pytest.raises(BundleValidationError, match="references itself"):
+        validate_computed_column_specs(specs)
+
+
+def test_guard_out_of_order_raises() -> None:
+    # Step 2 is declared before Step 1, which generates the column Step 2 needs
+    specs = [
+        {"type": "subtract", "columns": ["Total", "Reported"], "id": "variance", "name": "Variance"},
+        {"type": "sum", "columns": ["A", "B"], "id": "total", "name": "Total"},
+    ]
+    with pytest.raises(BundleValidationError, match="must be declared earlier"):
+        validate_computed_column_specs(specs)
+
+
+def test_guard_cycle_raises() -> None:
+    # A depends on B, B depends on A — impossible to resolve
+    specs = [
+        {"type": "subtract", "columns": ["B Col", "X"], "id": "a_col", "name": "A Col"},
+        {"type": "subtract", "columns": ["A Col", "X"], "id": "b_col", "name": "B Col"},
+    ]
+    # Out-of-order check fires first (B Col not yet generated when A Col is declared)
+    # so either BundleValidationError is acceptable here
+    with pytest.raises(BundleValidationError):
+        validate_computed_column_specs(specs)
+
+
+def test_guard_valid_chain_does_not_raise() -> None:
+    # Correct order: Total declared before Variance
+    specs = [
+        {"type": "sum", "columns": ["A", "B"], "id": "total", "name": "Total"},
+        {"type": "subtract", "columns": ["Total", "Reported"], "id": "variance", "name": "Variance"},
+    ]
+    validate_computed_column_specs(specs)  # should not raise
 
 
 # ===========================================================================

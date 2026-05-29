@@ -6,6 +6,67 @@ from typing import Any
 import pandas as pd
 from dateutil import parser as date_parser
 
+from .exceptions import BundleValidationError
+
+
+def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
+    """Raise BundleValidationError if computed column specs contain structural problems.
+
+    Checks (in order):
+    1. Self-reference: a spec lists its own output name as one of its inputs.
+    2. Out-of-order / undefined reference: a spec references a generated column
+       that has not been declared earlier in the list.
+    3. Cycles: a chain of dependencies that loops back to an earlier column
+       (detected via DFS on the dependency graph).
+    """
+    generated_so_far: set[str] = set()
+    # Build full dependency graph for cycle detection (name -> set of generated deps)
+    all_names = {computed_column_name(spec) for spec in specs}
+    deps: dict[str, set[str]] = {}
+
+    for spec in specs:
+        name = computed_column_name(spec)
+        inputs = required_input_columns(spec)
+        generated_deps = inputs & all_names
+        deps[name] = generated_deps
+
+        # 1. Self-reference
+        if name in inputs:
+            raise BundleValidationError(
+                f"Computed column {name!r} references itself as an input."
+            )
+
+        # 2. Out-of-order: any generated dep not yet produced by a prior spec
+        out_of_order = generated_deps - generated_so_far
+        if out_of_order:
+            missing_names = ", ".join(sorted(out_of_order))
+            raise BundleValidationError(
+                f"Computed column {name!r} depends on {missing_names}, "
+                f"which must be declared earlier in computed_columns."
+            )
+
+        generated_so_far.add(name)
+
+    # 3. Cycle detection via DFS (can only occur across specs, self-reference caught above)
+    def _has_cycle(node: str, visiting: set[str], visited: set[str]) -> bool:
+        visiting.add(node)
+        for dep in deps.get(node, set()):
+            if dep in visiting:
+                return True
+            if dep not in visited and _has_cycle(dep, visiting, visited):
+                return True
+        visiting.discard(node)
+        visited.add(node)
+        return False
+
+    visited: set[str] = set()
+    for name in deps:
+        if name not in visited:
+            if _has_cycle(name, set(), visited):
+                raise BundleValidationError(
+                    f"Computed columns contain a dependency cycle involving {name!r}."
+                )
+
 
 def apply_computed_columns(df: pd.DataFrame, specs: list[dict[str, Any]]) -> pd.DataFrame:
     """Return a copy of df with rule-bundle computed columns added."""

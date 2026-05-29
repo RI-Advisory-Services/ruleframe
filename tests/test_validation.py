@@ -1,6 +1,7 @@
+import pandas as pd
 import pytest
 
-from ruleframe import validate_dataframe
+from ruleframe import RuleBundle, validate_dataframe
 from ruleframe.exceptions import InputSchemaError
 
 
@@ -59,3 +60,28 @@ def test_missing_computed_source_columns_are_reported(
 
     with pytest.raises(InputSchemaError, match="Measure Gross Therm Savings"):
         validate_dataframe(df, computed_savings_bundle)
+
+
+def test_computed_column_name_collision_raises() -> None:
+    df = pd.DataFrame({"A": [1], "B": [2], "Total Savings": [3]})
+    bundle = RuleBundle.from_json_dict({
+        "version": 1,
+        "computed_columns": [
+            {"type": "sum", "columns": ["A", "B"], "id": "total_savings", "name": "Total Savings"}
+        ],
+        "rules": [],
+    })
+    with pytest.raises(InputSchemaError, match="collide with existing input"):
+        validate_dataframe(df, bundle)
+
+
+def test_computed_column_name_collision_does_not_raise_when_no_overlap() -> None:
+    df = pd.DataFrame({"A": [1], "B": [2]})
+    bundle = RuleBundle.from_json_dict({
+        "version": 1,
+        "computed_columns": [
+            {"type": "sum", "columns": ["A", "B"], "id": "total", "name": "Total"}
+        ],
+        "rules": [],
+    })
+    validate_dataframe(df, bundle)  # should not raise
