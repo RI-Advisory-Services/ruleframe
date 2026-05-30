@@ -14,7 +14,6 @@ from ruleframe.computed import (
 )
 from ruleframe.exceptions import BundleValidationError
 
-
 # ===========================================================================
 # Guard tests: validate_computed_column_specs and name collision
 # ===========================================================================
@@ -29,7 +28,12 @@ def test_guard_self_reference_raises() -> None:
 def test_guard_out_of_order_raises() -> None:
     # Step 2 is declared before Step 1, which generates the column Step 2 needs
     specs = [
-        {"type": "subtract", "columns": ["Total", "Reported"], "id": "variance", "name": "Variance"},
+        {
+            "type": "subtract",
+            "columns": ["Total", "Reported"],
+            "id": "variance",
+            "name": "Variance",
+        },
         {"type": "sum", "columns": ["A", "B"], "id": "total", "name": "Total"},
     ]
     with pytest.raises(BundleValidationError, match="must be declared earlier"):
@@ -52,7 +56,12 @@ def test_guard_valid_chain_does_not_raise() -> None:
     # Correct order: Total declared before Variance
     specs = [
         {"type": "sum", "columns": ["A", "B"], "id": "total", "name": "Total"},
-        {"type": "subtract", "columns": ["Total", "Reported"], "id": "variance", "name": "Variance"},
+        {
+            "type": "subtract",
+            "columns": ["Total", "Reported"],
+            "id": "variance",
+            "name": "Variance",
+        },
     ]
     validate_computed_column_specs(specs)  # should not raise
 
@@ -142,11 +151,13 @@ def test_divide_requires_exactly_two_columns() -> None:
 
 
 def test_coalesce_returns_first_non_null_per_row() -> None:
-    df = pd.DataFrame({
-        "A": [None, 2.0, None],
-        "B": [1.0, None, None],
-        "C": [3.0, 4.0, 5.0],
-    })
+    df = pd.DataFrame(
+        {
+            "A": [None, 2.0, None],
+            "B": [1.0, None, None],
+            "C": [3.0, 4.0, 5.0],
+        }
+    )
     result = compute_column(df, {"type": "coalesce", "columns": ["A", "B", "C"], "id": "r"})
     assert result.iloc[0] == 1.0  # A is null, B=1.0 wins
     assert result.iloc[1] == 2.0  # A=2.0 wins
@@ -172,10 +183,12 @@ def test_coalesce_works_with_string_columns() -> None:
 
 
 def test_group_sum_without_filter_maps_total_to_all_rows() -> None:
-    df = pd.DataFrame({
-        "Project ID": ["P1", "P1", "P2"],
-        "kWh": [5.0, 3.0, 7.0],
-    })
+    df = pd.DataFrame(
+        {
+            "Project ID": ["P1", "P1", "P2"],
+            "kWh": [5.0, 3.0, 7.0],
+        }
+    )
     spec = {"type": "group_sum", "group_by": "Project ID", "value_column": "kWh", "id": "r"}
     result = compute_column(df, spec)
     # P1 total = 8, P2 total = 7; every row in the group gets the group total
@@ -183,11 +196,13 @@ def test_group_sum_without_filter_maps_total_to_all_rows() -> None:
 
 
 def test_group_sum_with_filter_only_returns_value_on_matching_rows() -> None:
-    df = pd.DataFrame({
-        "Project ID": ["P1", "P1", "P2"],
-        "Measure": ["BEF", "LED", "BEF"],
-        "kWh": [5.0, 3.0, 7.0],
-    })
+    df = pd.DataFrame(
+        {
+            "Project ID": ["P1", "P1", "P2"],
+            "Measure": ["BEF", "LED", "BEF"],
+            "kWh": [5.0, 3.0, 7.0],
+        }
+    )
     spec = {
         "type": "group_sum",
         "group_by": "Project ID",
@@ -196,16 +211,18 @@ def test_group_sum_with_filter_only_returns_value_on_matching_rows() -> None:
         "id": "r",
     }
     result = compute_column(df, spec)
-    assert result.iloc[0] == 5.0   # P1 BEF total = 5
+    assert result.iloc[0] == 5.0  # P1 BEF total = 5
     assert pd.isna(result.iloc[1])  # LED row — not matching filter
-    assert result.iloc[2] == 7.0   # P2 BEF total = 7
+    assert result.iloc[2] == 7.0  # P2 BEF total = 7
 
 
 def test_group_sum_coerces_non_numeric_to_zero() -> None:
-    df = pd.DataFrame({
-        "Project ID": ["P1", "P1"],
-        "kWh": [5.0, "bad"],
-    })
+    df = pd.DataFrame(
+        {
+            "Project ID": ["P1", "P1"],
+            "kWh": [5.0, "bad"],
+        }
+    )
     spec = {"type": "group_sum", "group_by": "Project ID", "value_column": "kWh", "id": "r"}
     result = compute_column(df, spec)
     # "bad" coerces to NaN; groupby sum skips NaN by default → P1 total = 5
@@ -218,20 +235,24 @@ def test_group_sum_coerces_non_numeric_to_zero() -> None:
 
 
 def test_group_count_without_filter() -> None:
-    df = pd.DataFrame({
-        "Project ID": ["P1", "P1", "P2"],
-        "Value": [1, 2, 3],
-    })
+    df = pd.DataFrame(
+        {
+            "Project ID": ["P1", "P1", "P2"],
+            "Value": [1, 2, 3],
+        }
+    )
     spec = {"type": "group_count", "group_by": "Project ID", "id": "r"}
     result = compute_column(df, spec)
     assert result.tolist() == [2, 2, 1]
 
 
 def test_group_count_with_filter_returns_nan_on_non_matching_rows() -> None:
-    df = pd.DataFrame({
-        "Project ID": ["P1", "P1", "P2"],
-        "Status": ["Active", "Pending", "Active"],
-    })
+    df = pd.DataFrame(
+        {
+            "Project ID": ["P1", "P1", "P2"],
+            "Status": ["Active", "Pending", "Active"],
+        }
+    )
     spec = {
         "type": "group_count",
         "group_by": "Project ID",
@@ -239,9 +260,9 @@ def test_group_count_with_filter_returns_nan_on_non_matching_rows() -> None:
         "id": "r",
     }
     result = compute_column(df, spec)
-    assert result.iloc[0] == 1    # P1 has 1 Active row
+    assert result.iloc[0] == 1  # P1 has 1 Active row
     assert pd.isna(result.iloc[1])  # Pending row — not matching filter
-    assert result.iloc[2] == 1    # P2 has 1 Active row
+    assert result.iloc[2] == 1  # P2 has 1 Active row
 
 
 # ---------------------------------------------------------------------------
@@ -290,10 +311,12 @@ def test_collect_computed_source_columns_handles_mixed_types() -> None:
 
 
 def test_date_diff_returns_days_between_columns() -> None:
-    df = pd.DataFrame({
-        "Start": ["2024-01-01", "2024-03-01"],
-        "End":   ["2024-01-11", "2024-03-01"],
-    })
+    df = pd.DataFrame(
+        {
+            "Start": ["2024-01-01", "2024-03-01"],
+            "End": ["2024-01-11", "2024-03-01"],
+        }
+    )
     spec = {"type": "date_diff", "start_column": "Start", "end_column": "End", "id": "r"}
     result = compute_column(df, spec)
     assert result.tolist() == [10.0, 0.0]
@@ -307,20 +330,24 @@ def test_date_diff_end_before_start_returns_negative() -> None:
 
 
 def test_date_diff_handles_pandas_timestamps() -> None:
-    df = pd.DataFrame({
-        "Start": pd.to_datetime(["2024-01-01"]),
-        "End":   pd.to_datetime(["2024-01-06"]),
-    })
+    df = pd.DataFrame(
+        {
+            "Start": pd.to_datetime(["2024-01-01"]),
+            "End": pd.to_datetime(["2024-01-06"]),
+        }
+    )
     spec = {"type": "date_diff", "start_column": "Start", "end_column": "End", "id": "r"}
     result = compute_column(df, spec)
     assert result.iloc[0] == 5.0
 
 
 def test_date_diff_returns_none_when_either_date_is_null() -> None:
-    df = pd.DataFrame({
-        "Start": ["2024-01-01", None],
-        "End":   [None,         "2024-01-06"],
-    })
+    df = pd.DataFrame(
+        {
+            "Start": ["2024-01-01", None],
+            "End": [None, "2024-01-06"],
+        }
+    )
     spec = {"type": "date_diff", "start_column": "Start", "end_column": "End", "id": "r"}
     result = compute_column(df, spec)
     assert result.iloc[0] is None or pd.isna(result.iloc[0])
@@ -335,7 +362,12 @@ def test_date_diff_returns_none_for_unparseable_date() -> None:
 
 
 def test_date_diff_required_input_columns() -> None:
-    spec = {"type": "date_diff", "start_column": "Installation Date", "end_column": "Date Inspected", "id": "r"}
+    spec = {
+        "type": "date_diff",
+        "start_column": "Installation Date",
+        "end_column": "Date Inspected",
+        "id": "r",
+    }
     assert required_input_columns(spec) == {"Installation Date", "Date Inspected"}
 
 
@@ -421,7 +453,8 @@ def test_years_since_year_required_input_columns() -> None:
 
 def test_all_blank_or_zero_returns_1_when_all_zero() -> None:
     df = pd.DataFrame({"A": [0.0], "B": [0.0], "C": [0.0]})
-    result = compute_column(df, {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"})
+    spec = {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"}
+    result = compute_column(df, spec)
     assert result.iloc[0] == 1
 
 
@@ -433,13 +466,15 @@ def test_all_blank_or_zero_returns_1_when_all_null() -> None:
 
 def test_all_blank_or_zero_returns_1_when_mix_of_zero_and_null() -> None:
     df = pd.DataFrame({"A": [0.0], "B": [None], "C": [0.0]})
-    result = compute_column(df, {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"})
+    spec = {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"}
+    result = compute_column(df, spec)
     assert result.iloc[0] == 1
 
 
 def test_all_blank_or_zero_returns_0_when_any_nonzero() -> None:
     df = pd.DataFrame({"A": [0.0], "B": [5.0], "C": [0.0]})
-    result = compute_column(df, {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"})
+    spec = {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"}
+    result = compute_column(df, spec)
     assert result.iloc[0] == 0
 
 
@@ -523,7 +558,9 @@ def test_group_sum_bef_kwh_correct_per_project(group_aggregate_df, group_aggrega
     assert pd.isna(p1_bef.loc[p1_bef["Measure Type"] == "LED", col].iloc[0])
 
 
-def test_group_sum_hs_incentive_correct_per_project(group_aggregate_df, group_aggregate_bundle) -> None:
+def test_group_sum_hs_incentive_correct_per_project(
+    group_aggregate_df, group_aggregate_bundle
+) -> None:
     result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project H&S Total Incentive"
@@ -655,7 +692,9 @@ def test_all_blank_or_zero_flag_column_values(savings_flag_df, savings_flag_bund
     assert annotated[col].tolist() == [1, 1, 1, 0, 0, 1]
 
 
-def test_all_blank_or_zero_triggers_findings_on_correct_rows(savings_flag_df, savings_flag_bundle) -> None:
+def test_all_blank_or_zero_triggers_findings_on_correct_rows(
+    savings_flag_df, savings_flag_bundle
+) -> None:
     result = validate_dataframe(savings_flag_df, savings_flag_bundle)
     findings = [f for f in result.findings if f.rule_id == "no_savings_recorded"]
     # Rows 0,1,2,5 (R1,R2,R3,R6) should produce findings

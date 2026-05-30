@@ -92,7 +92,10 @@ def computed_column_name_collisions(df: pd.DataFrame, bundle: RuleBundle) -> lis
 
 
 def _row_to_json_data(row: pd.Series) -> dict[str, Any]:
-    return row.where(pd.notna(row), None).to_dict()
+    data: dict[str, Any] = {}
+    for key, val in row.items():
+        data[str(key)] = None if pd.isna(val) else val
+    return data
 
 
 def _with_row_id(df: pd.DataFrame, bundle: RuleBundle) -> pd.DataFrame:

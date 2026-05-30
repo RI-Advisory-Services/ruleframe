@@ -118,31 +118,39 @@ def test_from_json_string_non_dict_raises() -> None:
 
 def test_rule_missing_id_raises() -> None:
     with pytest.raises(BundleValidationError, match="missing required field 'id'"):
-        RuleBundle.from_json_dict({
-            "version": 1,
-            "rules": [{"fail_when": {"column": "A", "equals": "X"}}],
-        })
+        RuleBundle.from_json_dict(
+            {
+                "version": 1,
+                "rules": [{"fail_when": {"column": "A", "equals": "X"}}],
+            }
+        )
 
 
 def test_rule_missing_fail_when_raises() -> None:
     with pytest.raises(BundleValidationError, match="missing required field 'fail_when'"):
-        RuleBundle.from_json_dict({
-            "version": 1,
-            "rules": [{"id": "r1", "message": "no fail_when"}],
-        })
+        RuleBundle.from_json_dict(
+            {
+                "version": 1,
+                "rules": [{"id": "r1", "message": "no fail_when"}],
+            }
+        )
 
 
 def test_rule_fail_when_not_dict_raises() -> None:
     with pytest.raises(BundleValidationError, match="'fail_when' must be a dictionary"):
-        RuleBundle.from_json_dict({
-            "version": 1,
-            "rules": [{"id": "r1", "fail_when": "column: A"}],
-        })
+        RuleBundle.from_json_dict(
+            {
+                "version": 1,
+                "rules": [{"id": "r1", "fail_when": "column: A"}],
+            }
+        )
 
 
 def test_rule_not_a_dict_raises() -> None:
     with pytest.raises(BundleValidationError, match="must be a dictionary"):
-        RuleBundle.from_json_dict({
-            "version": 1,
-            "rules": ["not a dict"],
-        })
+        RuleBundle.from_json_dict(
+            {
+                "version": 1,
+                "rules": ["not a dict"],
+            }
+        )

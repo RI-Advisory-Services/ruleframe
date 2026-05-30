@@ -171,7 +171,7 @@ class Between(Operator):
         lower, upper = bounds
         if lower is None or upper is None:
             return False
-        return lower <= value <= upper
+        return bool(lower <= value <= upper)
 
 
 @dataclass

@@ -46,9 +46,7 @@ def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
     if op == "not_equals":
         return {"!=": [column_var, expected]}
     if op in COLUMN_REFERENCE_OPERATORS:
-        return {
-            COLUMN_REFERENCE_OPERATORS[op]: [column_var, {"var": json_pointer(str(expected))}]
-        }
+        return {COLUMN_REFERENCE_OPERATORS[op]: [column_var, {"var": json_pointer(str(expected))}]}
     if op == "greater_than":
         return {">": [column_var, expected]}
     if op == "greater_than_or_equal":
@@ -90,7 +88,8 @@ def compile_rule(rule: dict[str, Any]) -> dict[str, Any]:
 
     fail_when = rule.get("fail_when")
     if not isinstance(fail_when, dict):
-        raise BundleValidationError(f"Rule {rule.get('id', '<unknown>')!r} must contain a fail_when object")
+        rule_id = rule.get("id", "<unknown>")
+        raise BundleValidationError(f"Rule {rule_id!r} must contain a fail_when object")
     return compile_condition(fail_when)
 
 

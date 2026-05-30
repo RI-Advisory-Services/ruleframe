@@ -8,7 +8,6 @@ from dateutil import parser as date_parser
 
 from .exceptions import BundleValidationError
 
-
 VALID_COMPUTED_TYPES = frozenset(
     {
         "sum",
@@ -55,9 +54,7 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
 
         # 1. Self-reference
         if name in inputs:
-            raise BundleValidationError(
-                f"Computed column {name!r} references itself as an input."
-            )
+            raise BundleValidationError(f"Computed column {name!r} references itself as an input.")
 
         # 2. Out-of-order: any generated dep not yet produced by a prior spec
         out_of_order = generated_deps - generated_so_far
@@ -106,21 +103,21 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if column_type == "sum":
         columns = computed_source_columns(spec)
         numeric = df[columns].apply(pd.to_numeric, errors="coerce")
-        return numeric.sum(axis=1, min_count=1)
+        return pd.Series(numeric.sum(axis=1, min_count=1), index=df.index)
     if column_type == "subtract":
         columns = computed_source_columns(spec)
         numeric = df[columns].apply(pd.to_numeric, errors="coerce")
-        result = numeric.iloc[:, 0].copy()
+        result: pd.Series = numeric.iloc[:, 0].copy()
         for i in range(1, len(columns)):
             result = result - numeric.iloc[:, i]
         return result
     if column_type == "multiply":
         columns = computed_source_columns(spec)
         numeric = df[columns].apply(pd.to_numeric, errors="coerce")
-        result = numeric.iloc[:, 0].copy()
+        mul_result: pd.Series = numeric.iloc[:, 0].copy()
         for i in range(1, len(columns)):
-            result = result * numeric.iloc[:, i]
-        return result
+            mul_result = mul_result * numeric.iloc[:, i]
+        return mul_result
     if column_type == "divide":
         columns = computed_source_columns(spec)
         if len(columns) != 2:
@@ -219,7 +216,7 @@ def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     start_dt = _to_datetime_series(df[start_col])
     end_dt = _to_datetime_series(df[end_col])
     delta = (end_dt - start_dt).dt.days
-    return delta.astype("Float64")
+    return pd.Series(delta.astype("Float64"), index=df.index)
 
 
 def _compute_days_since_today(
@@ -235,7 +232,7 @@ def _compute_days_since_today(
     reference = pd.Timestamp(*(today or datetime.date.today()).timetuple()[:3])
     col_dt = _to_datetime_series(df[column])
     delta = (reference - col_dt).dt.days
-    return delta.astype("Float64")
+    return pd.Series(delta.astype("Float64"), index=df.index)
 
 
 def _compute_years_since_year(
@@ -267,9 +264,7 @@ def _compute_all_blank_or_zero(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Ser
         numeric = pd.to_numeric(s, errors="coerce")
         is_zero = numeric == 0.0
         # For non-numeric non-null values: check if empty string
-        is_empty_str = s.apply(
-            lambda v: isinstance(v, str) and v.strip() == ""
-        )
+        is_empty_str = s.apply(lambda v: isinstance(v, str) and v.strip() == "")
         col_ok = is_null | is_zero | is_empty_str
         all_blank_or_zero = all_blank_or_zero & col_ok
 
@@ -284,7 +279,7 @@ def computed_column_name(spec: dict[str, Any]) -> str:
 
 
 def computed_source_columns(spec: dict[str, Any]) -> list[str]:
-    """Return the ``columns`` list for types that use it (sum, subtract, multiply, divide, coalesce)."""
+    """Return the ``columns`` list for arithmetic/coalesce types."""
     columns = spec.get("columns")
     if not isinstance(columns, list) or not columns:
         raise ValueError("Computed columns must define a non-empty columns list")

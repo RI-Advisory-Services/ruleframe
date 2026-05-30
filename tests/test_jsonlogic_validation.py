@@ -94,8 +94,8 @@ def test_not_equals_fires_when_column_is_blank() -> None:
     df = pd.DataFrame(
         [
             {"EER": float("nan"), "Fuel Type": "Electric"},  # blank — should fire
-            {"EER": 0.0, "Fuel Type": "Electric"},           # correct — should not fire
-            {"EER": 5.0, "Fuel Type": "Electric"},           # wrong value — should fire
+            {"EER": 0.0, "Fuel Type": "Electric"},  # correct — should not fire
+            {"EER": 5.0, "Fuel Type": "Electric"},  # wrong value — should fire
         ]
     )
     bundle = RuleBundle.from_json_dict(
@@ -122,8 +122,8 @@ def test_not_equals_column_both_blank_does_not_fire() -> None:
     df = pd.DataFrame(
         [
             {"A": float("nan"), "B": float("nan")},  # both blank — should not fire
-            {"A": 1.0, "B": 2.0},                    # different values — should fire
-            {"A": 1.0, "B": 1.0},                    # equal — should not fire
+            {"A": 1.0, "B": 2.0},  # different values — should fire
+            {"A": 1.0, "B": 1.0},  # equal — should not fire
         ]
     )
     bundle = RuleBundle.from_json_dict(

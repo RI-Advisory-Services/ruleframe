@@ -83,14 +83,10 @@ def _validate_structure(raw: dict[str, Any]) -> None:
         if not isinstance(rule, dict):
             raise BundleValidationError(f"Rule at index {i} must be a dictionary")
         if "id" not in rule:
-            raise BundleValidationError(
-                f"Rule at index {i} is missing required field 'id'"
-            )
+            raise BundleValidationError(f"Rule at index {i} is missing required field 'id'")
         if "fail_when" not in rule:
             raise BundleValidationError(
                 f"Rule {rule['id']!r} is missing required field 'fail_when'"
             )
         if not isinstance(rule["fail_when"], dict):
-            raise BundleValidationError(
-                f"Rule {rule['id']!r} 'fail_when' must be a dictionary"
-            )
+            raise BundleValidationError(f"Rule {rule['id']!r} 'fail_when' must be a dictionary")
