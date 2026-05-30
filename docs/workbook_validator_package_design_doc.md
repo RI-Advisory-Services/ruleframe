@@ -399,6 +399,38 @@ Date parse failures should be visible. The package should avoid silently coercin
 
 The validation run should also have one stable `now` or `today` value. Operators and computed columns should not call `datetime.now()` independently for every row.
 
+### Date Handling — Implementation Status (2026-05-30)
+
+**What's implemented:**
+- `_to_datetime_series()` in `computed.py`: hybrid approach using `pd.to_datetime(errors='coerce')` with per-cell `dateutil.parse` fallback for failures. Handles mixed formats in the same column.
+- `_parse_date_like()` in `operators.py`: per-value parser for rule evaluation (Timestamp, datetime, date, string via dateutil).
+- `days_since_today` and `date_diff` computed columns use vectorized datetime ops.
+- `date_days_apart_gt` operator for rule evaluation.
+
+**What's NOT implemented (from settings spec above):**
+- `settings.timezone` — `days_since_today` uses naive `date.today()`, no timezone awareness.
+- `settings.date_parsing.formats` — we don't constrain or prioritize formats; dateutil guesses freely. This means `01/02/2024` is ambiguous (Jan 2 vs Feb 1) and we have no way to tell it which to prefer.
+- `settings.date_parsing.allow_excel_serial` — Excel serial dates (e.g., `45292`) are not detected or converted.
+- Column-level `type: date` declarations — no pre-parsing or type coercion happens based on column schema.
+- **No parse-failure diagnostics** — if a date can't be parsed, computed columns silently produce NaN and rules silently don't fire. There's no finding or warning surfaced to the user.
+- **No stable `today`** at the run level — `days_since_today` accepts an injected `today` parameter internally (for testing), but there's no bundle-settings-driven mechanism to set it once per run. The operator-level `parse_date_like` has no equivalent.
+
+**Design decisions still needed:**
+1. **Format priority vs. auto-detect:** Should `settings.date_parsing.formats` be a strict whitelist (reject anything that doesn't match), a priority list (try in order, fall back to dateutil), or a hint (influence dateutil's `dayfirst`/`yearfirst` params)?
+2. **Parse failure behavior:** Should unparseable dates produce a `Finding` (like a rule failure), a separate diagnostic list, or a logged warning? What severity?
+3. **Excel serial dates:** Detection heuristic — a bare integer like `45292` in a date column could be a year or a serial date. Do we require `allow_excel_serial: true` + column-level `type: date` to trigger conversion?
+4. **Timezone for "today":** Should `settings.timezone` affect only `days_since_today`/`now` behavior, or should it also be used when parsing timezone-naive strings?
+5. **Stable run clock:** Should `validate_dataframe` accept an optional `now` parameter, or should it be derived from `settings.timezone` automatically? The operator registry currently has no way to receive run-level context.
+
+### applies_when / expect — Future Consideration
+
+**Status:** Not implemented. `fail_when` is the only v1 rule trigger.
+
+**Open questions:**
+1. If we add `applies_when` + `expect`, does the bundle validator reject rules that have both `fail_when` AND `applies_when`? Or allow both patterns per-rule?
+2. Should unknown top-level keys on a rule dict (e.g., a typo like `faile_when`) produce a warning or be silently ignored? Currently silently ignored because we only check for `id` + `fail_when` presence.
+3. Does adding `applies_when` change the compilation strategy? (`fail_when` compiles to one JsonLogic expression; `applies_when + expect` compiles to `and(applies_when, not(expect))`.)
+
 ## Column References
 
 The spike used JSON Pointer variable paths for column references:
