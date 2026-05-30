@@ -84,6 +84,67 @@ def test_validate_dataframe_supports_jsonlogic_operator_registry() -> None:
     assert annotated.loc[1, "Rule Messages"] == ""
 
 
+def test_not_equals_fires_when_column_is_blank() -> None:
+    """A blank (NaN→None) value must trigger a not_equals rule.
+
+    Regression: NullSafeNotEq was previously short-circuiting to False
+    whenever the left operand was None, silently swallowing findings for
+    rules of the form "field must equal X".
+    """
+    df = pd.DataFrame(
+        [
+            {"EER": float("nan"), "Fuel Type": "Electric"},  # blank — should fire
+            {"EER": 0.0, "Fuel Type": "Electric"},           # correct — should not fire
+            {"EER": 5.0, "Fuel Type": "Electric"},           # wrong value — should fire
+        ]
+    )
+    bundle = RuleBundle.from_json_dict(
+        {
+            "version": 1,
+            "rules": [
+                {
+                    "id": "eer_must_be_zero",
+                    "severity": "error",
+                    "fail_when": {"column": "EER", "not_equals": 0},
+                    "message": "EER must be 0",
+                }
+            ],
+        }
+    )
+
+    result = validate_dataframe(df, bundle)
+    firing_rows = [f.row_index for f in result.findings if f.rule_id == "eer_must_be_zero"]
+    assert firing_rows == [0, 2]  # blank and wrong-value rows, not the correct row
+
+
+def test_not_equals_column_both_blank_does_not_fire() -> None:
+    """When both sides of a not_equals_column comparison are blank, do not fire."""
+    df = pd.DataFrame(
+        [
+            {"A": float("nan"), "B": float("nan")},  # both blank — should not fire
+            {"A": 1.0, "B": 2.0},                    # different values — should fire
+            {"A": 1.0, "B": 1.0},                    # equal — should not fire
+        ]
+    )
+    bundle = RuleBundle.from_json_dict(
+        {
+            "version": 1,
+            "rules": [
+                {
+                    "id": "a_must_equal_b",
+                    "severity": "error",
+                    "fail_when": {"column": "A", "not_equals_column": "B"},
+                    "message": "A must equal B",
+                }
+            ],
+        }
+    )
+
+    result = validate_dataframe(df, bundle)
+    firing_rows = [f.row_index for f in result.findings if f.rule_id == "a_must_equal_b"]
+    assert firing_rows == [1]  # only the differing-values row
+
+
 def test_validate_dataframe_reports_missing_rule_columns() -> None:
     df = pd.DataFrame([{"A": "Yes"}])
     bundle = RuleBundle.from_json_dict(

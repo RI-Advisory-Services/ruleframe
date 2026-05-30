@@ -244,8 +244,26 @@ class NullSafeEq(NullSafeComparison):
 
 
 class NullSafeNotEq(NullSafeComparison):
-    """Returns False (not a finding) when either side is None."""
+    """Fires when left != right.
+
+    If right is blank the rule cannot be evaluated (return False).
+    If left is blank but right is not, the column has no value and therefore
+    does not equal the expected value (return True).
+    """
+
     _op = staticmethod(lambda a, b: a != b)
+
+    def evaluate(self, context: EvaluationContext) -> bool:
+        left = get_value(self.left, context)
+        right = get_value(self.right, context)
+        if is_blank(right):
+            return False
+        if is_blank(left):
+            return True
+        try:
+            return bool(self._func(left, right))
+        except TypeError:
+            return False
 
 
 class NullSafeGt(NullSafeComparison):
