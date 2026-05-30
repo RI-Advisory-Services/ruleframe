@@ -196,6 +196,19 @@ def _parse_date(value: Any) -> datetime.datetime | None:
         return None
 
 
+def _to_datetime_series(series: pd.Series) -> pd.Series:
+    """Convert a series to datetime, using pd.to_datetime first and dateutil as fallback."""
+    result = pd.to_datetime(series, errors="coerce")
+    # Find cells that pd.to_datetime couldn't parse but have non-null original values
+    failed_mask = result.isna() & series.notna()
+    if failed_mask.any():
+        for idx in series.index[failed_mask]:
+            parsed = _parse_date(series.at[idx])
+            if parsed is not None:
+                result.at[idx] = pd.Timestamp(parsed)
+    return result
+
+
 def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     """Return (end_column - start_column) in whole days."""
     start_col: str | None = spec.get("start_column")
@@ -203,14 +216,10 @@ def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if not start_col or not end_col:
         raise ValueError("date_diff requires start_column and end_column")
 
-    def _diff(row: pd.Series) -> float | None:
-        start = _parse_date(row[start_col])
-        end = _parse_date(row[end_col])
-        if start is None or end is None:
-            return None
-        return float((end - start).days)
-
-    return df.apply(_diff, axis=1)
+    start_dt = _to_datetime_series(df[start_col])
+    end_dt = _to_datetime_series(df[end_col])
+    delta = (end_dt - start_dt).dt.days
+    return delta.astype("Float64")
 
 
 def _compute_days_since_today(
@@ -223,17 +232,10 @@ def _compute_days_since_today(
     if not column:
         raise ValueError("days_since_today requires column")
 
-    reference = datetime.datetime(
-        *(today or datetime.date.today()).timetuple()[:3]
-    )
-
-    def _diff(value: Any) -> float | None:
-        parsed = _parse_date(value)
-        if parsed is None:
-            return None
-        return float((reference - parsed).days)
-
-    return df[column].apply(_diff)
+    reference = pd.Timestamp(*(today or datetime.date.today()).timetuple()[:3])
+    col_dt = _to_datetime_series(df[column])
+    delta = (reference - col_dt).dt.days
+    return delta.astype("Float64")
 
 
 def _compute_years_since_year(
@@ -247,36 +249,31 @@ def _compute_years_since_year(
         raise ValueError("years_since_year requires column")
 
     year = current_year if current_year is not None else datetime.date.today().year
-
-    def _diff(value: Any) -> float | None:
-        if value is None or (isinstance(value, float) and pd.isna(value)):
-            return None
-        try:
-            return float(year - int(float(str(value).strip())))
-        except (ValueError, TypeError):
-            return None
-
-    return df[column].apply(_diff)
+    numeric = pd.to_numeric(df[column], errors="coerce")
+    result = (year - numeric.astype("Float64").round(0)).astype("Float64")
+    return result
 
 
 def _compute_all_blank_or_zero(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     """Return 1 if all listed columns are blank or zero for the row, else 0."""
     columns = computed_source_columns(spec)
 
-    def _check(row: pd.Series) -> int:
-        for col in columns:
-            val = row[col]
-            if pd.isna(val):
-                continue
-            try:
-                if float(val) != 0.0:
-                    return 0
-            except (ValueError, TypeError):
-                if str(val).strip() != "":
-                    return 0
-        return 1
+    # For each column: True if cell is null/blank or numerically zero
+    all_blank_or_zero = pd.Series(True, index=df.index)
+    for col in columns:
+        s = df[col]
+        is_null = s.isna()
+        # Try numeric comparison for zero
+        numeric = pd.to_numeric(s, errors="coerce")
+        is_zero = numeric == 0.0
+        # For non-numeric non-null values: check if empty string
+        is_empty_str = s.apply(
+            lambda v: isinstance(v, str) and v.strip() == ""
+        )
+        col_ok = is_null | is_zero | is_empty_str
+        all_blank_or_zero = all_blank_or_zero & col_ok
 
-    return df.apply(_check, axis=1)
+    return all_blank_or_zero.astype(int)
 
 
 def computed_column_name(spec: dict[str, Any]) -> str:

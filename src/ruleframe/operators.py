@@ -214,13 +214,12 @@ class NullSafeComparison(Operator):
 
     left: OperatorArgument
     right: OperatorArgument
-    _func: Any  # callable (left, right) -> bool — stored at class level per subclass
 
     @classmethod
     def from_expression(cls, operator: str, arguments: list[OperatorArgument]):
         if len(arguments) != 2:
             raise JSONLogicSyntaxError(f"{operator!r} expects two arguments, got {len(arguments)}")
-        return cls(operator=operator, left=arguments[0], right=arguments[1], _func=cls._op)
+        return cls(operator=operator, left=arguments[0], right=arguments[1])
 
     def typecheck(self, context) -> JSONSchemaType:
         for value in (self.left, self.right):
@@ -228,19 +227,23 @@ class NullSafeComparison(Operator):
                 value.typecheck(context)
         return BooleanType()
 
+    def _compare(self, left: Any, right: Any) -> bool:
+        raise NotImplementedError
+
     def evaluate(self, context: EvaluationContext) -> bool:
         left = get_value(self.left, context)
         right = get_value(self.right, context)
         if left is None or right is None:
             return False
         try:
-            return bool(self._func(left, right))
+            return self._compare(left, right)
         except TypeError:
             return False
 
 
 class NullSafeEq(NullSafeComparison):
-    _op = staticmethod(lambda a, b: a == b)
+    def _compare(self, left: Any, right: Any) -> bool:
+        return bool(left == right)
 
 
 class NullSafeNotEq(NullSafeComparison):
@@ -251,7 +254,8 @@ class NullSafeNotEq(NullSafeComparison):
     does not equal the expected value (return True).
     """
 
-    _op = staticmethod(lambda a, b: a != b)
+    def _compare(self, left: Any, right: Any) -> bool:
+        return bool(left != right)
 
     def evaluate(self, context: EvaluationContext) -> bool:
         left = get_value(self.left, context)
@@ -261,25 +265,29 @@ class NullSafeNotEq(NullSafeComparison):
         if is_blank(left):
             return True
         try:
-            return bool(self._func(left, right))
+            return self._compare(left, right)
         except TypeError:
             return False
 
 
 class NullSafeGt(NullSafeComparison):
-    _op = staticmethod(lambda a, b: a > b)
+    def _compare(self, left: Any, right: Any) -> bool:
+        return bool(left > right)
 
 
 class NullSafeGte(NullSafeComparison):
-    _op = staticmethod(lambda a, b: a >= b)
+    def _compare(self, left: Any, right: Any) -> bool:
+        return bool(left >= right)
 
 
 class NullSafeLt(NullSafeComparison):
-    _op = staticmethod(lambda a, b: a < b)
+    def _compare(self, left: Any, right: Any) -> bool:
+        return bool(left < right)
 
 
 class NullSafeLte(NullSafeComparison):
-    _op = staticmethod(lambda a, b: a <= b)
+    def _compare(self, left: Any, right: Any) -> bool:
+        return bool(left <= right)
 
 
 def build_registry() -> OperatorRegistry:

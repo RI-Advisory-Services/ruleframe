@@ -366,7 +366,7 @@ def test_days_since_today_returns_none_for_unparseable() -> None:
     spec = {"type": "days_since_today", "column": "Install Date", "id": "r"}
     today = datetime.date(2024, 1, 11)
     result = _compute_days_since_today(df, spec, today=today)
-    assert result.iloc[0] is None
+    assert result.iloc[0] is None or pd.isna(result.iloc[0])
 
 
 def test_days_since_today_required_input_columns() -> None:
