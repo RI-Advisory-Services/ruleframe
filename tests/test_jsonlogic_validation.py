@@ -145,6 +145,91 @@ def test_not_equals_column_both_blank_does_not_fire() -> None:
     assert firing_rows == [1]  # only the differing-values row
 
 
+def _single_rule_bundle(condition: dict) -> RuleBundle:
+    return RuleBundle.from_json_dict(
+        {
+            "version": 1,
+            "rules": [
+                {
+                    "id": "r",
+                    "severity": "error",
+                    "fail_when": condition,
+                    "message": "rule fired",
+                }
+            ],
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("condition", "records", "expected_rows"),
+    [
+        (
+            {"column": "A", "equals_column": "B"},
+            [{"A": 1, "B": 1}, {"A": 1, "B": 2}],
+            [0],
+        ),
+        (
+            {"column": "A", "greater_than_column": "B"},
+            [{"A": 3, "B": 2}, {"A": 2, "B": 3}],
+            [0],
+        ),
+        (
+            {"column": "A", "greater_than_or_equal_column": "B"},
+            [{"A": 3, "B": 3}, {"A": 2, "B": 3}],
+            [0],
+        ),
+        (
+            {"column": "A", "less_than_column": "B"},
+            [{"A": 2, "B": 3}, {"A": 3, "B": 2}],
+            [0],
+        ),
+        (
+            {"column": "A", "less_than_or_equal_column": "B"},
+            [{"A": 3, "B": 3}, {"A": 3, "B": 2}],
+            [0],
+        ),
+        (
+            {"column": "A", "greater_than_or_equal": 10},
+            [{"A": 10}, {"A": 9}],
+            [0],
+        ),
+        ({"column": "A", "less_than": 10}, [{"A": 9}, {"A": 10}], [0]),
+        (
+            {"column": "A", "less_than_or_equal": 10},
+            [{"A": 10}, {"A": 11}],
+            [0],
+        ),
+        (
+            {"column": "A", "not_in": ["x", "y"]},
+            [{"A": "z"}, {"A": "x"}],
+            [0],
+        ),
+        (
+            {"column": "A", "not_contains": "needle"},
+            [{"A": "plain text"}, {"A": "has needle"}],
+            [0],
+        ),
+        (
+            {"column": "A", "not_between": [1, 5]},
+            [{"A": 0}, {"A": 3}, {"A": 6}],
+            [0, 2],
+        ),
+        (
+            {"column": "A", "is_not_blank": True},
+            [{"A": "value"}, {"A": ""}, {"A": None}, {"A": "   "}],
+            [0],
+        ),
+    ],
+)
+def test_validate_dataframe_supports_remaining_friendly_operators(
+    condition, records, expected_rows
+) -> None:
+    result = validate_dataframe(pd.DataFrame(records), _single_rule_bundle(condition))
+    firing_rows = [finding.row_index for finding in result.findings]
+    assert firing_rows == expected_rows
+
+
 def test_validate_dataframe_reports_missing_rule_columns() -> None:
     df = pd.DataFrame([{"A": "Yes"}])
     bundle = RuleBundle.from_json_dict(
@@ -338,7 +423,13 @@ def test_date_diff_columns_are_normalized_before_computation() -> None:
         {
             "version": 1,
             "computed_columns": [
-                {"id": "diff", "name": "Diff", "type": "date_diff", "start_column": "Start", "end_column": "End"}
+                {
+                    "id": "diff",
+                    "name": "Diff",
+                    "type": "date_diff",
+                    "start_column": "Start",
+                    "end_column": "End",
+                }
             ],
             "rules": [
                 {

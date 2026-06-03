@@ -63,6 +63,123 @@ def test_column_reference_operators_are_centralized() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("condition", "expected"),
+    [
+        ({"column": "A", "equals": "x"}, {"==": [{"var": "/A"}, "x"]}),
+        ({"column": "A", "not_equals": "x"}, {"!=": [{"var": "/A"}, "x"]}),
+        (
+            {"column": "A", "equals_column": "B"},
+            {"==": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "not_equals_column": "B"},
+            {"!=": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "greater_than_column": "B"},
+            {">": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "greater_than_or_equal_column": "B"},
+            {">=": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "less_than_column": "B"},
+            {"<": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "less_than_or_equal_column": "B"},
+            {"<=": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        ({"column": "A", "greater_than": 10}, {">": [{"var": "/A"}, 10]}),
+        (
+            {"column": "A", "greater_than_or_equal": 10},
+            {">=": [{"var": "/A"}, 10]},
+        ),
+        ({"column": "A", "less_than": 10}, {"<": [{"var": "/A"}, 10]}),
+        (
+            {"column": "A", "less_than_or_equal": 10},
+            {"<=": [{"var": "/A"}, 10]},
+        ),
+        ({"column": "A", "in": ["x", "y"]}, {"in": [{"var": "/A"}, ["x", "y"]]}),
+        (
+            {"column": "A", "not_in": ["x", "y"]},
+            {"!": [{"in": [{"var": "/A"}, ["x", "y"]]}]},
+        ),
+        (
+            {"column": "A", "contains": "needle"},
+            {"contains": [{"var": "/A"}, "needle"]},
+        ),
+        (
+            {"column": "A", "not_contains": "needle"},
+            {"!": [{"contains": [{"var": "/A"}, "needle"]}]},
+        ),
+        ({"column": "A", "between": [1, 5]}, {"between": [{"var": "/A"}, [1, 5]]}),
+        (
+            {"column": "A", "not_between": [1, 5]},
+            {"!": [{"between": [{"var": "/A"}, [1, 5]]}]},
+        ),
+        ({"column": "A", "is_blank": True}, {"is_blank": [{"var": "/A"}]}),
+        ({"column": "A", "is_blank": False}, {"is_not_blank": [{"var": "/A"}]}),
+        ({"column": "A", "is_not_blank": True}, {"is_not_blank": [{"var": "/A"}]}),
+        ({"column": "A", "is_not_blank": False}, {"is_blank": [{"var": "/A"}]}),
+        (
+            {"column": "A", "days_apart_greater_than": {"column": "B", "days": 30}},
+            {"date_days_apart_gt": [{"var": "/A"}, {"var": "/B"}, 30]},
+        ),
+        (
+            {"column": "A", "date_greater_than": "2024-01-01"},
+            {"date_gt": [{"var": "/A"}, "2024-01-01"]},
+        ),
+        (
+            {"column": "A", "date_greater_than_or_equal": "2024-01-01"},
+            {"date_gte": [{"var": "/A"}, "2024-01-01"]},
+        ),
+        (
+            {"column": "A", "date_less_than": "2024-01-01"},
+            {"date_lt": [{"var": "/A"}, "2024-01-01"]},
+        ),
+        (
+            {"column": "A", "date_less_than_or_equal": "2024-01-01"},
+            {"date_lte": [{"var": "/A"}, "2024-01-01"]},
+        ),
+        ({"column": "A", "date_equals": "2024-01-01"}, {"date_eq": [{"var": "/A"}, "2024-01-01"]}),
+        (
+            {"column": "A", "date_between": ["2024-01-01", "2024-12-31"]},
+            {"date_between": [{"var": "/A"}, ["2024-01-01", "2024-12-31"]]},
+        ),
+        (
+            {"column": "A", "date_not_between": ["2024-01-01", "2024-12-31"]},
+            {"!": [{"date_between": [{"var": "/A"}, ["2024-01-01", "2024-12-31"]]}]},
+        ),
+    ],
+)
+def test_compile_condition_supports_all_friendly_operators(condition, expected) -> None:
+    assert compile_condition(condition) == expected
+
+
+@pytest.mark.parametrize(
+    ("condition", "expected"),
+    [
+        (
+            {"all": [{"column": "A", "equals": 1}, {"column": "B", "equals": 2}]},
+            {"and": [{"==": [{"var": "/A"}, 1]}, {"==": [{"var": "/B"}, 2]}]},
+        ),
+        (
+            {"any": [{"column": "A", "equals": 1}, {"column": "B", "equals": 2}]},
+            {"or": [{"==": [{"var": "/A"}, 1]}, {"==": [{"var": "/B"}, 2]}]},
+        ),
+        (
+            {"not": {"column": "A", "equals": 1}},
+            {"!": [{"==": [{"var": "/A"}, 1]}]},
+        ),
+    ],
+)
+def test_compile_condition_supports_logic_nodes(condition, expected) -> None:
+    assert compile_condition(condition) == expected
+
+
 # ===========================================================================
 # compile_rule direct tests
 # ===========================================================================
