@@ -30,7 +30,6 @@ def test_validate_dataframe_supports_jsonlogic_operator_registry() -> None:
         {
             "version": 1,
             "settings": {
-                "row_id": {"column": "__validation_row_id__", "strategy": "sequential"},
                 "validation_errors_column": "Rule Messages",
             },
             "rules": [
@@ -79,7 +78,6 @@ def test_validate_dataframe_supports_jsonlogic_operator_registry() -> None:
         "late_inspection",
     ]
     annotated = result.to_annotated_dataframe()
-    assert annotated["__validation_row_id__"].tolist() == [1, 2]
     assert "Rule Messages" in annotated.columns
     assert annotated.loc[1, "Rule Messages"] == ""
 

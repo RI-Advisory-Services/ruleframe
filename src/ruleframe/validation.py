@@ -54,7 +54,7 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
 
     findings: list[Finding] = []
     messages_by_row: dict[int, list[str]] = defaultdict(list)
-    annotated = _with_row_id(working_df, bundle)
+    annotated = working_df.copy()
 
     for row_pos, (_, row) in enumerate(annotated.iterrows()):
         row_data = _row_to_json_data(row)
@@ -83,9 +83,6 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
 def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
     required = collect_rule_columns(bundle.rules)
     generated = collect_computed_column_names(bundle.computed_columns)
-    if row_id_column := _row_id_column(bundle):
-        generated.add(row_id_column)
-
     source_columns = collect_computed_source_columns(bundle.computed_columns)
     # A generated column may be used as input to a later computed column (chained).
     # Only columns that are NOT themselves generated must be present in the input DataFrame.
@@ -104,25 +101,6 @@ def _row_to_json_data(row: pd.Series) -> dict[str, Any]:
     for key, val in row.items():
         data[str(key)] = None if pd.isna(val) else val
     return data
-
-
-def _with_row_id(df: pd.DataFrame, bundle: RuleBundle) -> pd.DataFrame:
-    row_id_column = _row_id_column(bundle)
-    annotated = df.copy()
-    if row_id_column and row_id_column not in annotated.columns:
-        annotated.insert(0, row_id_column, range(1, len(annotated) + 1))
-    return annotated
-
-
-def _row_id_column(bundle: RuleBundle) -> str | None:
-    settings = bundle.raw.get("settings")
-    if not isinstance(settings, dict):
-        return None
-    row_id = settings.get("row_id")
-    if not isinstance(row_id, dict):
-        return None
-    column = row_id.get("column")
-    return str(column) if column else None
 
 
 def _validation_errors_column(bundle: RuleBundle) -> str:

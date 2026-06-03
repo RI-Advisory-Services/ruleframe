@@ -33,9 +33,6 @@ rules:
 settings:
   validation_errors_column: Validation Errors   # column name in annotated output (default: "Validation Errors")
   date_format: "%m/%d/%Y"                        # optional strict date format for all date columns
-  row_id:
-    column: Row ID                               # column to use as row identifier in findings output
-    strategy: sequential                         # "sequential" assigns 1-based integers
 ```
 
 ### `date_format`
