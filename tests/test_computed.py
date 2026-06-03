@@ -3,6 +3,7 @@ import datetime
 import pandas as pd
 import pytest
 
+import ruleframe.computed as computed_module
 from ruleframe import validate_dataframe
 from ruleframe.computed import (
     _compute_days_since_today,
@@ -384,6 +385,21 @@ def test_days_since_today_uses_injected_today() -> None:
     assert result.tolist() == [20.0, 10.0]
 
 
+def test_days_since_today_compute_column_uses_default_today(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDate(datetime.date):
+        @classmethod
+        def today(cls) -> datetime.date:
+            return cls(2024, 1, 21)
+
+    monkeypatch.setattr(computed_module.datetime, "date", FrozenDate)
+    df = pd.DataFrame({"Install Date": ["2024-01-01", "2024-01-11"]})
+    spec = {"type": "days_since_today", "column": "Install Date", "id": "r"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [20.0, 10.0]
+
+
 def test_days_since_today_returns_none_for_null() -> None:
     df = pd.DataFrame({"Install Date": [None, "2024-01-01"]})
     spec = {"type": "days_since_today", "column": "Install Date", "id": "r"}
@@ -415,6 +431,21 @@ def test_years_since_year_returns_age() -> None:
     df = pd.DataFrame({"Year": [2000, 2010, 2020]})
     spec = {"type": "years_since_year", "column": "Year", "id": "r"}
     result = _compute_years_since_year(df, spec, current_year=2024)
+    assert result.tolist() == [24.0, 14.0, 4.0]
+
+
+def test_years_since_year_compute_column_uses_default_current_year(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDate(datetime.date):
+        @classmethod
+        def today(cls) -> datetime.date:
+            return cls(2024, 1, 21)
+
+    monkeypatch.setattr(computed_module.datetime, "date", FrozenDate)
+    df = pd.DataFrame({"Year": [2000, 2010, 2020]})
+    spec = {"type": "years_since_year", "column": "Year", "id": "r"}
+    result = compute_column(df, spec)
     assert result.tolist() == [24.0, 14.0, 4.0]
 
 
