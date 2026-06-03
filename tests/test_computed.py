@@ -78,6 +78,26 @@ def test_guard_unsupported_type_raises() -> None:
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
+# sum
+# ---------------------------------------------------------------------------
+
+
+def test_sum_adds_columns_and_skips_nulls() -> None:
+    df = pd.DataFrame(
+        {
+            "A": [1.0, None, None],
+            "B": [2.0, 3.0, None],
+            "C": [None, None, None],
+        }
+    )
+    spec = {"type": "sum", "columns": ["A", "B", "C"], "id": "result"}
+    result = compute_column(df, spec)
+    assert result.iloc[0] == 3.0
+    assert result.iloc[1] == 3.0
+    assert pd.isna(result.iloc[2])
+
+
+# ---------------------------------------------------------------------------
 # subtract
 # ---------------------------------------------------------------------------
 
@@ -665,6 +685,18 @@ def test_date_diff_days_to_inspection(date_df, date_bundle) -> None:
     assert pd.isna(annotated[col].iloc[2])
     assert pd.isna(annotated[col].iloc[3])
     assert annotated[col].iloc[4] == 30.0
+
+
+def test_days_since_today_days_since_installation(date_df, date_bundle) -> None:
+    result = validate_dataframe(date_df, date_bundle)
+    annotated = result.to_annotated_dataframe()
+    col = "Days Since Installation"
+    today = pd.Timestamp(datetime.date.today())
+    assert annotated[col].iloc[0] == float((today - pd.Timestamp("2020-01-01")).days)
+    assert annotated[col].iloc[1] == float((today - pd.Timestamp("2019-06-01")).days)
+    assert pd.isna(annotated[col].iloc[2])
+    assert annotated[col].iloc[3] == float((today - pd.Timestamp("2018-12-01")).days)
+    assert annotated[col].iloc[4] == float((today - pd.Timestamp("2022-03-15")).days)
 
 
 def test_years_since_year_system_age(date_df, date_bundle) -> None:
