@@ -650,16 +650,16 @@ def test_coalesce_best_available_date(date_df, date_bundle) -> None:
     result = validate_dataframe(date_df, date_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Best Available Date"
-    # R1: Date Inspected = 2020-01-15
-    # R2: Date Inspected = 2019-06-01
-    # R3: Date Inspected is blank, Alt A = 2021-03-01
+    # R1: Date Inspected = 2020-01-15 (normalized Timestamp)
+    # R2: Date Inspected = 2019-06-01 (normalized Timestamp)
+    # R3: Date Inspected is blank, Alt A = 2021-03-01 (raw string, not a date column)
     # R4: Date Inspected is blank, Alt A blank, Alt B blank → NaN
-    # R5: Date Inspected = 2022-04-14
-    assert annotated[col].iloc[0] == "2020-01-15"
-    assert annotated[col].iloc[1] == "2019-06-01"
+    # R5: Date Inspected = 2022-04-14 (normalized Timestamp)
+    assert annotated[col].iloc[0] == pd.Timestamp("2020-01-15")
+    assert annotated[col].iloc[1] == pd.Timestamp("2019-06-01")
     assert annotated[col].iloc[2] == "2021-03-01"
     assert pd.isna(annotated[col].iloc[3])
-    assert annotated[col].iloc[4] == "2022-04-14"
+    assert annotated[col].iloc[4] == pd.Timestamp("2022-04-14")
 
 
 def test_date_rules_trigger_correct_findings(date_df, date_bundle) -> None:

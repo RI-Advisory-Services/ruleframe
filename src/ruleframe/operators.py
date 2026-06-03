@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 import pandas as pd
-from dateutil import parser as date_parser
 from jsonlogic import JSONLogicSyntaxError
+
+from .dates import parse_date_value
 from jsonlogic.core import Operator, OperatorArgument
 from jsonlogic.evaluation import EvaluationContext
 from jsonlogic.json_schema import BooleanType, JSONSchemaType
@@ -200,8 +201,8 @@ class DateDaysApartGreaterThan(Operator):
         return BooleanType()
 
     def evaluate(self, context: EvaluationContext) -> bool:
-        left = parse_date_like(get_value(self.left_date, context))
-        right = parse_date_like(get_value(self.right_date, context))
+        left = parse_date_value(get_value(self.left_date, context))
+        right = parse_date_value(get_value(self.right_date, context))
         days = get_value(self.days, context)
         if left is None or right is None or days is None:
             return False
@@ -290,6 +291,106 @@ class NullSafeLte(NullSafeComparison):
         return bool(left <= right)
 
 
+# ---------------------------------------------------------------------------
+# Date literal comparison operators
+# ---------------------------------------------------------------------------
+# These operators compare a (pre-normalized) date column against a literal
+# date value declared in the rule. Both sides are resolved to datetime.date
+# via parse_date_value; either side being None returns False (no fire).
+# The operator name in the rule file (e.g. "date_greater_than") is compiled
+# to the JsonLogic key (e.g. "date_gt") by the compiler.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DateLiteralComparison(Operator):
+    """Base for date column vs. literal date comparisons."""
+
+    column_value: OperatorArgument
+    date_literal: OperatorArgument
+
+    @classmethod
+    def from_expression(cls, operator: str, arguments: list[OperatorArgument]):
+        if len(arguments) != 2:
+            raise JSONLogicSyntaxError(f"{operator!r} expects two arguments, got {len(arguments)}")
+        return cls(operator=operator, column_value=arguments[0], date_literal=arguments[1])
+
+    def typecheck(self, context) -> JSONSchemaType:
+        for value in (self.column_value, self.date_literal):
+            if isinstance(value, Operator):
+                value.typecheck(context)
+        return BooleanType()
+
+    def _compare(self, col_date: date, lit_date: date) -> bool:
+        raise NotImplementedError
+
+    def evaluate(self, context: EvaluationContext) -> bool:
+        col_date = parse_date_value(get_value(self.column_value, context))
+        lit_date = parse_date_value(get_value(self.date_literal, context))
+        if col_date is None or lit_date is None:
+            return False
+        return self._compare(col_date, lit_date)
+
+
+class DateGt(DateLiteralComparison):
+    def _compare(self, col_date: date, lit_date: date) -> bool:
+        return col_date > lit_date
+
+
+class DateGte(DateLiteralComparison):
+    def _compare(self, col_date: date, lit_date: date) -> bool:
+        return col_date >= lit_date
+
+
+class DateLt(DateLiteralComparison):
+    def _compare(self, col_date: date, lit_date: date) -> bool:
+        return col_date < lit_date
+
+
+class DateLte(DateLiteralComparison):
+    def _compare(self, col_date: date, lit_date: date) -> bool:
+        return col_date <= lit_date
+
+
+class DateEq(DateLiteralComparison):
+    def _compare(self, col_date: date, lit_date: date) -> bool:
+        return col_date == lit_date
+
+
+@dataclass
+class DateBetween(Operator):
+    """True when column date falls within [lower, upper] inclusive.
+
+    The literal operand must be a two-element list: ["YYYY-MM-DD", "YYYY-MM-DD"].
+    """
+
+    column_value: OperatorArgument
+    bounds: OperatorArgument
+
+    @classmethod
+    def from_expression(cls, operator: str, arguments: list[OperatorArgument]):
+        if len(arguments) != 2:
+            raise JSONLogicSyntaxError(f"{operator!r} expects two arguments, got {len(arguments)}")
+        return cls(operator=operator, column_value=arguments[0], bounds=arguments[1])
+
+    def typecheck(self, context) -> JSONSchemaType:
+        for value in (self.column_value, self.bounds):
+            if isinstance(value, Operator):
+                value.typecheck(context)
+        return BooleanType()
+
+    def evaluate(self, context: EvaluationContext) -> bool:
+        col_date = parse_date_value(get_value(self.column_value, context))
+        bounds = get_value(self.bounds, context)
+        if col_date is None or not isinstance(bounds, (list, tuple)) or len(bounds) != 2:
+            return False
+        lower = parse_date_value(bounds[0])
+        upper = parse_date_value(bounds[1])
+        if lower is None or upper is None:
+            return False
+        return lower <= col_date <= upper
+
+
 def build_registry() -> OperatorRegistry:
     """Build RuleFrame's default validation-oriented JsonLogic registry."""
 
@@ -301,6 +402,12 @@ def build_registry() -> OperatorRegistry:
     registry.register("contains", Contains)
     registry.register("between", Between)
     registry.register("date_days_apart_gt", DateDaysApartGreaterThan)
+    registry.register("date_gt", DateGt)
+    registry.register("date_gte", DateGte)
+    registry.register("date_lt", DateLt)
+    registry.register("date_lte", DateLte)
+    registry.register("date_eq", DateEq)
+    registry.register("date_between", DateBetween)
     registry.register("is_blank", IsBlank)
     registry.register("is_not_blank", IsNotBlank)
     # Null-safe comparisons: if either operand is None the rule does not fire.
@@ -326,15 +433,3 @@ def is_blank(value: Any) -> bool:
     return False
 
 
-def parse_date_like(value: Any) -> date | None:
-    if value is None or is_blank(value):
-        return None
-    if isinstance(value, pd.Timestamp):
-        return value.date()
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    if isinstance(value, str) and value.strip():
-        return date_parser.parse(value).date()
-    return None

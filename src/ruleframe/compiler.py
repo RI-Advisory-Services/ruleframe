@@ -79,6 +79,20 @@ def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
                 expected["days"],
             ]
         }
+    if op == "date_greater_than":
+        return {"date_gt": [column_var, expected]}
+    if op == "date_greater_than_or_equal":
+        return {"date_gte": [column_var, expected]}
+    if op == "date_less_than":
+        return {"date_lt": [column_var, expected]}
+    if op == "date_less_than_or_equal":
+        return {"date_lte": [column_var, expected]}
+    if op == "date_equals":
+        return {"date_eq": [column_var, expected]}
+    if op == "date_between":
+        return {"date_between": [column_var, expected]}
+    if op == "date_not_between":
+        return {"!": [{"date_between": [column_var, expected]}]}
 
     raise BundleValidationError(f"Unsupported friendly operator: {op}")
 

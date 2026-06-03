@@ -15,6 +15,7 @@ from .computed import (
     collect_computed_source_columns,
     validate_computed_column_specs,
 )
+from .dates import normalize_date_series
 from .exceptions import InputSchemaError
 from .operators import build_registry
 from .result import Finding, ValidationResult
@@ -36,7 +37,14 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
     if missing:
         raise InputSchemaError("Input is missing required rule column(s): " + ", ".join(missing))
 
-    working_df = apply_computed_columns(df, bundle.computed_columns)
+    date_fmt = _date_format(bundle)
+    date_cols = _infer_date_columns(bundle)
+    working_df = df.copy()
+    for col in date_cols:
+        if col in working_df.columns:
+            working_df[col] = normalize_date_series(working_df[col], fmt=date_fmt)
+
+    working_df = apply_computed_columns(working_df, bundle.computed_columns)
 
     registry = build_registry()
     compiled_rules = [
@@ -122,3 +130,88 @@ def _validation_errors_column(bundle: RuleBundle) -> str:
     if isinstance(settings, dict) and settings.get("validation_errors_column"):
         return str(settings["validation_errors_column"])
     return "Validation Errors"
+
+
+def _date_format(bundle: RuleBundle) -> str | None:
+    """Return the bundle-level date_format string, or None for flexible parsing."""
+    settings = bundle.raw.get("settings")
+    if isinstance(settings, dict):
+        fmt = settings.get("date_format")
+        return str(fmt) if fmt else None
+    return None
+
+
+_DATE_IMPLIED_CONDITIONS = frozenset(
+    {
+        "days_apart_greater_than",
+        "date_greater_than",
+        "date_greater_than_or_equal",
+        "date_less_than",
+        "date_less_than_or_equal",
+        "date_equals",
+        "date_between",
+        "date_not_between",
+    }
+)
+
+
+def _infer_date_columns(bundle: RuleBundle) -> set[str]:
+    """Return column names that are structurally implied to be date columns.
+
+    Sources:
+    - ``date_diff`` computed specs: ``start_column`` and ``end_column``
+    - ``days_since_today`` computed specs: ``column``
+    - Rule conditions using date-specific operators (``days_apart_greater_than``,
+      ``date_greater_than``, etc.)
+    """
+    cols: set[str] = set()
+
+    for spec in bundle.computed_columns:
+        t = spec.get("type")
+        if t == "date_diff":
+            if c := spec.get("start_column"):
+                cols.add(str(c))
+            if c := spec.get("end_column"):
+                cols.add(str(c))
+        elif t == "days_since_today":
+            if c := spec.get("column"):
+                cols.add(str(c))
+
+    for rule in bundle.rules:
+        fail_when = rule.get("fail_when")
+        if isinstance(fail_when, dict):
+            cols |= _date_columns_from_condition(fail_when)
+
+    return cols
+
+
+def _date_columns_from_condition(condition: dict) -> set[str]:
+    """Recursively collect date columns implied by a condition tree."""
+    cols: set[str] = set()
+
+    if "all" in condition:
+        for child in condition["all"]:
+            cols |= _date_columns_from_condition(child)
+        return cols
+    if "any" in condition:
+        for child in condition["any"]:
+            cols |= _date_columns_from_condition(child)
+        return cols
+    if "not" in condition:
+        return _date_columns_from_condition(condition["not"])
+
+    col = condition.get("column")
+    if not col:
+        return cols
+
+    for op in _DATE_IMPLIED_CONDITIONS:
+        if op in condition:
+            cols.add(str(col))
+            # days_apart_greater_than references a second date column
+            if op == "days_apart_greater_than":
+                other = condition[op]
+                if isinstance(other, dict) and (other_col := other.get("column")):
+                    cols.add(str(other_col))
+            break
+
+    return cols

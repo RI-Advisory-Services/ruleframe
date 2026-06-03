@@ -4,8 +4,8 @@ import datetime
 from typing import Any
 
 import pandas as pd
-from dateutil import parser as date_parser
 
+from .dates import normalize_date_series
 from .exceptions import BundleValidationError
 
 VALID_COMPUTED_TYPES = frozenset(
@@ -177,34 +177,6 @@ def _compute_group_count(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return df[group_by].map(group_counts)
 
 
-def _parse_date(value: Any) -> datetime.datetime | None:
-    """Parse a value to datetime, returning None if null or unparseable."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return None
-    if isinstance(value, datetime.datetime):
-        return value
-    if isinstance(value, datetime.date):
-        return datetime.datetime(value.year, value.month, value.day)
-    if isinstance(value, pd.Timestamp):
-        return value.to_pydatetime()
-    try:
-        return date_parser.parse(str(value).strip())
-    except (ValueError, OverflowError):
-        return None
-
-
-def _to_datetime_series(series: pd.Series) -> pd.Series:
-    """Convert a series to datetime, using pd.to_datetime first and dateutil as fallback."""
-    result = pd.to_datetime(series, errors="coerce")
-    # Find cells that pd.to_datetime couldn't parse but have non-null original values
-    failed_mask = result.isna() & series.notna()
-    if failed_mask.any():
-        for idx in series.index[failed_mask]:
-            parsed = _parse_date(series.at[idx])
-            if parsed is not None:
-                result.at[idx] = pd.Timestamp(parsed)
-    return result
-
 
 def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     """Return (end_column - start_column) in whole days."""
@@ -213,8 +185,8 @@ def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if not start_col or not end_col:
         raise ValueError("date_diff requires start_column and end_column")
 
-    start_dt = _to_datetime_series(df[start_col])
-    end_dt = _to_datetime_series(df[end_col])
+    start_dt = normalize_date_series(df[start_col])
+    end_dt = normalize_date_series(df[end_col])
     delta = (end_dt - start_dt).dt.days
     return pd.Series(delta.astype("Float64"), index=df.index)
 
@@ -230,7 +202,7 @@ def _compute_days_since_today(
         raise ValueError("days_since_today requires column")
 
     reference = pd.Timestamp(*(today or datetime.date.today()).timetuple()[:3])
-    col_dt = _to_datetime_series(df[column])
+    col_dt = normalize_date_series(df[column])
     delta = (reference - col_dt).dt.days
     return pd.Series(delta.astype("Float64"), index=df.index)
 
