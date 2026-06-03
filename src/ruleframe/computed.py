@@ -165,11 +165,10 @@ def _compute_group_sum(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     filter_spec: dict[str, Any] | None = spec.get("filter")
     if filter_spec:
         mask: pd.Series = df[filter_spec["column"]] == filter_spec["equals"]
-        group_totals = numeric_values[mask].groupby(df.loc[mask, group_by]).sum()
-        result = df[group_by].map(group_totals)
-        return result.where(mask)
+        group_totals = numeric_values[mask].groupby(df.loc[mask, group_by]).sum(min_count=1)
+        return df[group_by].map(group_totals)
     else:
-        group_totals = numeric_values.groupby(df[group_by]).sum()
+        group_totals = numeric_values.groupby(df[group_by]).sum(min_count=1)
         return df[group_by].map(group_totals)
 
 

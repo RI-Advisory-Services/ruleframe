@@ -48,6 +48,9 @@ rules:
     name: High BEF project total kWh
     severity: warning
     fail_when:
-      column: Project BEF Total kWh
-      greater_than: 100
+      all:
+        - column: Measure Type
+          equals: BEF
+        - column: Project BEF Total kWh
+          greater_than: 100
     message: Project BEF total kWh exceeds 100.

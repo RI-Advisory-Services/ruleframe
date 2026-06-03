@@ -39,7 +39,7 @@ Date computed columns accept columns in any unambiguous string format (ISO `YYYY
 
 ### Group aggregates
 
-- **`group_sum`** — sum a `value_column` grouped by `group_by`; optional `filter` restricts which rows contribute; non-contributing rows receive NaN
+- **`group_sum`** — sum a `value_column` grouped by `group_by`; optional `filter` restricts which rows contribute; the group total is mapped to every row in the group; groups with no numeric contributing values receive NaN
 - **`group_count`** — count rows grouped by `group_by`; optional `filter` restricts which rows contribute; groups with no matching rows receive 0
 
 #### group_sum / group_count filter
@@ -55,7 +55,7 @@ Date computed columns accept columns in any unambiguous string format (ISO `YYYY
     equals: BEF
 ```
 
-Rows that do not match the filter receive NaN (not zero). This is intentional — a NaN means the value is undefined for that row, not zero.
+Filtered group aggregates are group-level values, not row-level masks. Matching rows contribute to the aggregate, then the result is mapped to every row in the group. For `group_sum`, groups with no numeric contributing values receive NaN; for `group_count`, groups with no matching rows receive 0.
 
 ## Chaining Computed Columns
 

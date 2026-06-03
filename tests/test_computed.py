@@ -225,12 +225,12 @@ def test_group_sum_without_filter_maps_total_to_all_rows() -> None:
     assert result.tolist() == [8.0, 8.0, 7.0]
 
 
-def test_group_sum_with_filter_only_returns_value_on_matching_rows() -> None:
+def test_group_sum_with_filter_maps_total_to_all_group_rows() -> None:
     df = pd.DataFrame(
         {
-            "Project ID": ["P1", "P1", "P2"],
-            "Measure": ["BEF", "LED", "BEF"],
-            "kWh": [5.0, 3.0, 7.0],
+            "Project ID": ["P1", "P1", "P2", "P3"],
+            "Measure": ["BEF", "LED", "BEF", "LED"],
+            "kWh": [5.0, 3.0, 7.0, 2.0],
         }
     )
     spec = {
@@ -242,11 +242,12 @@ def test_group_sum_with_filter_only_returns_value_on_matching_rows() -> None:
     }
     result = compute_column(df, spec)
     assert result.iloc[0] == 5.0  # P1 BEF total = 5
-    assert pd.isna(result.iloc[1])  # LED row — not matching filter
+    assert result.iloc[1] == 5.0  # P1 total is mapped to non-BEF rows too
     assert result.iloc[2] == 7.0  # P2 BEF total = 7
+    assert pd.isna(result.iloc[3])  # P3 has no BEF rows
 
 
-def test_group_sum_coerces_non_numeric_to_zero() -> None:
+def test_group_sum_skips_non_numeric_values_when_any_numeric_value_exists() -> None:
     df = pd.DataFrame(
         {
             "Project ID": ["P1", "P1"],
@@ -255,8 +256,20 @@ def test_group_sum_coerces_non_numeric_to_zero() -> None:
     )
     spec = {"type": "group_sum", "group_by": "Project ID", "value_column": "kWh", "id": "r"}
     result = compute_column(df, spec)
-    # "bad" coerces to NaN; groupby sum skips NaN by default → P1 total = 5
     assert result.tolist() == [5.0, 5.0]
+
+
+def test_group_sum_returns_nan_when_group_has_no_numeric_values() -> None:
+    df = pd.DataFrame(
+        {
+            "Project ID": ["P1", "P1"],
+            "kWh": [None, "bad"],
+        }
+    )
+    spec = {"type": "group_sum", "group_by": "Project ID", "value_column": "kWh", "id": "r"}
+    result = compute_column(df, spec)
+    assert pd.isna(result.iloc[0])
+    assert pd.isna(result.iloc[1])
 
 
 # ---------------------------------------------------------------------------
@@ -612,11 +625,15 @@ def test_group_sum_bef_kwh_correct_per_project(group_aggregate_df, group_aggrega
     result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project BEF Total kWh"
-    # P1 BEF rows (R1=100, R2=50) → 150; P1 LED row → NaN; P2 BEF row → 80; P2 H&S row → NaN
+    # P1 BEF total is 150 on all P1 rows; P2 BEF total is 80 on all P2 rows; P3 has no BEF rows.
     p1_bef = annotated.loc[annotated["Project ID"] == "P1"]
     assert p1_bef.loc[p1_bef["Measure Type"] == "BEF", col].iloc[0] == 150.0
     assert p1_bef.loc[p1_bef["Measure Type"] == "BEF", col].iloc[1] == 150.0
-    assert pd.isna(p1_bef.loc[p1_bef["Measure Type"] == "LED", col].iloc[0])
+    assert p1_bef.loc[p1_bef["Measure Type"] == "LED", col].iloc[0] == 150.0
+    p2_rows = annotated.loc[annotated["Project ID"] == "P2"]
+    assert (p2_rows[col] == 80.0).all()
+    p3_rows = annotated.loc[annotated["Project ID"] == "P3"]
+    assert p3_rows[col].isna().all()
 
 
 def test_group_sum_hs_incentive_correct_per_project(
@@ -625,11 +642,13 @@ def test_group_sum_hs_incentive_correct_per_project(
     result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project H&S Total Incentive"
-    # P2 H&S row: incentive=300; P3 H&S rows: 150+100=250
-    p2_hs = annotated.loc[(annotated["Project ID"] == "P2") & (annotated["Measure Type"] == "H&S")]
-    assert p2_hs[col].iloc[0] == 300.0
-    p3_hs = annotated.loc[(annotated["Project ID"] == "P3") & (annotated["Measure Type"] == "H&S")]
-    assert (p3_hs[col] == 250.0).all()
+    # P2 H&S total is 300 on all P2 rows; P3 H&S total is 250 on all P3 rows
+    p2_rows = annotated.loc[annotated["Project ID"] == "P2"]
+    assert (p2_rows[col] == 300.0).all()
+    p3_rows = annotated.loc[annotated["Project ID"] == "P3"]
+    assert (p3_rows[col] == 250.0).all()
+    p1_rows = annotated.loc[annotated["Project ID"] == "P1"]
+    assert p1_rows[col].isna().all()
 
 
 def test_group_sum_total_kwh_covers_all_rows(group_aggregate_df, group_aggregate_bundle) -> None:
@@ -669,7 +688,7 @@ def test_group_count_row_count_per_project(group_aggregate_df, group_aggregate_b
 
 def test_group_sum_triggers_high_bef_finding(group_aggregate_df, group_aggregate_bundle) -> None:
     result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
-    # P1 BEF total kWh = 150 > 100 → 2 findings (one per BEF row in P1)
+    # P1 BEF total kWh = 150 > 100, but the rule is scoped to BEF rows.
     findings = [f for f in result.findings if f.rule_id == "high_bef_kwh"]
     assert len(findings) == 2
 
