@@ -73,6 +73,15 @@ def test_guard_unsupported_type_raises() -> None:
         validate_computed_column_specs(specs)
 
 
+def test_guard_duplicate_output_names_raise() -> None:
+    specs = [
+        {"type": "sum", "columns": ["A", "B"], "id": "total_a", "name": "Total"},
+        {"type": "sum", "columns": ["C", "D"], "id": "total_b", "name": "Total"},
+    ]
+    with pytest.raises(BundleValidationError, match="must be unique: Total"):
+        validate_computed_column_specs(specs)
+
+
 # ===========================================================================
 # Unit tests: small inline DataFrames for edge cases
 # ===========================================================================

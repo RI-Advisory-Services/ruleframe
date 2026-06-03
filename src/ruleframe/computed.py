@@ -29,15 +29,27 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
     """Raise BundleValidationError if computed column specs contain structural problems.
 
     Checks (in order):
-    1. Self-reference: a spec lists its own output name as one of its inputs.
-    2. Out-of-order / undefined reference: a spec references a generated column
+    1. Duplicate output names: two specs cannot generate the same column.
+    2. Self-reference: a spec lists its own output name as one of its inputs.
+    3. Out-of-order / undefined reference: a spec references a generated column
        that has not been declared earlier in the list.
-    3. Cycles: a chain of dependencies that loops back to an earlier column
+    4. Cycles: a chain of dependencies that loops back to an earlier column
        (detected via DFS on the dependency graph).
     """
     generated_so_far: set[str] = set()
     # Build full dependency graph for cycle detection (name -> set of generated deps)
-    all_names = {computed_column_name(spec) for spec in specs}
+    all_names: set[str] = set()
+    duplicate_names: set[str] = set()
+    for spec in specs:
+        name = computed_column_name(spec)
+        if name in all_names:
+            duplicate_names.add(name)
+        all_names.add(name)
+
+    if duplicate_names:
+        names = ", ".join(sorted(duplicate_names))
+        raise BundleValidationError(f"Computed column output name(s) must be unique: {names}")
+
     deps: dict[str, set[str]] = {}
 
     for spec in specs:

@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from ruleframe import RuleBundle, validate_dataframe
-from ruleframe.exceptions import InputSchemaError
+from ruleframe.exceptions import BundleValidationError, InputSchemaError
 
 
 def test_validation_returns_findings(sample_df, sample_bundle) -> None:
@@ -94,3 +94,20 @@ def test_computed_column_name_collision_does_not_raise_when_no_overlap() -> None
         }
     )
     validate_dataframe(df, bundle)  # should not raise
+
+
+def test_duplicate_computed_column_output_names_raise() -> None:
+    df = pd.DataFrame({"A": [1], "B": [2], "C": [3], "D": [4]})
+    bundle = RuleBundle.from_json_dict(
+        {
+            "version": 1,
+            "computed_columns": [
+                {"type": "sum", "columns": ["A", "B"], "id": "total_a", "name": "Total"},
+                {"type": "sum", "columns": ["C", "D"], "id": "total_b", "name": "Total"},
+            ],
+            "rules": [],
+        }
+    )
+
+    with pytest.raises(BundleValidationError, match="must be unique: Total"):
+        validate_dataframe(df, bundle)
