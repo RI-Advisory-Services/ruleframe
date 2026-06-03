@@ -545,6 +545,13 @@ def test_all_blank_or_zero_returns_1_when_mix_of_zero_and_null() -> None:
     assert result.iloc[0] == 1
 
 
+def test_all_blank_or_zero_returns_0_for_literal_nan_string() -> None:
+    df = pd.DataFrame({"A": ["nan"], "B": [0.0]})
+    spec = {"type": "all_blank_or_zero", "columns": ["A", "B"], "id": "r"}
+    result = compute_column(df, spec)
+    assert result.iloc[0] == 0
+
+
 def test_all_blank_or_zero_returns_0_when_any_nonzero() -> None:
     df = pd.DataFrame({"A": [0.0], "B": [5.0], "C": [0.0]})
     spec = {"type": "all_blank_or_zero", "columns": ["A", "B", "C"], "id": "r"}

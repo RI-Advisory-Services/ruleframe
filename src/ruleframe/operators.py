@@ -6,14 +6,14 @@ from typing import Any
 
 import pandas as pd
 from jsonlogic import JSONLogicSyntaxError
-
-from .dates import parse_date_value
 from jsonlogic.core import Operator, OperatorArgument
 from jsonlogic.evaluation import EvaluationContext
 from jsonlogic.json_schema import BooleanType, JSONSchemaType
 from jsonlogic.operators import operator_registry
 from jsonlogic.operators.operators import get_value
 from jsonlogic.registry import OperatorRegistry
+
+from .dates import parse_date_value
 
 
 @dataclass
@@ -429,7 +429,7 @@ def is_blank(value: Any) -> bool:
     except (TypeError, ValueError):
         pass
     if isinstance(value, str):
-        return value.strip() == "" or value.strip().lower() == "nan"
+        return value.strip() == ""
     return False
 
 

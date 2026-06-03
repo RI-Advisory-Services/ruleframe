@@ -218,6 +218,11 @@ def _single_rule_bundle(condition: dict) -> RuleBundle:
             [{"A": "value"}, {"A": ""}, {"A": None}, {"A": "   "}],
             [0],
         ),
+        (
+            {"column": "A", "is_blank": True},
+            [{"A": "nan"}, {"A": "NaN"}, {"A": float("nan")}, {"A": ""}],
+            [2, 3],
+        ),
     ],
 )
 def test_validate_dataframe_supports_remaining_friendly_operators(
