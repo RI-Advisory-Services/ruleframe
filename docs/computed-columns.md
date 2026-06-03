@@ -31,9 +31,11 @@ computed_columns:
 
 ### Date
 
-- **`date_diff`** — `(end_column - start_column)` in whole days; requires `start_column` and `end_column`
-- **`days_since_today`** — `(today - column)` in whole days; requires `column`
-- **`years_since_year`** — `(current_year - column)` as an integer year count; requires `column`
+Date computed columns accept columns in any unambiguous string format (ISO `YYYY-MM-DD`, US `MM/DD/YYYY`, `M/D/YYYY`, etc.) or pandas `datetime64` columns. Columns referenced by these types are normalized to calendar dates automatically before the computation runs. See [Date Handling](#date-handling) below.
+
+- **`date_diff`** — `(end_column - start_column)` in whole days; requires `start_column` and `end_column`; NaN when either date is blank or unparseable
+- **`days_since_today`** — `(today - column)` in whole days; requires `column`; NaN when the date is blank or unparseable
+- **`years_since_year`** — `(current_year - column)` as an integer year count; requires `column`; this type treats the column as a plain integer year, not a date
 
 ### Group aggregates
 
@@ -83,8 +85,9 @@ computed_columns:
 ## Pipeline Position
 
 1. Validate required source columns against the input DataFrame.
-2. Apply computed columns in declaration order.
-3. Evaluate rules using input columns plus all computed columns.
+2. Normalize inferred date columns (see [Date Handling](#date-handling)).
+3. Apply computed columns in declaration order.
+4. Evaluate rules using input columns plus all computed columns.
 
 ## Known Constraints
 
@@ -93,9 +96,27 @@ computed_columns:
 - **Self-reference** — a spec that lists its own output name as an input raises `BundleValidationError` at validation time.
 - **Name collision with input columns** — if a generated column name matches an existing input column, `InputSchemaError` is raised before any data is processed. Avoid reusing input column names for computed columns.
 
+## Date Handling
 
-## Pipeline Position
+Columns referenced by `date_diff` and `days_since_today` computed types are automatically normalized to tz-naive `datetime64[ns]` (midnight) before any computation runs. You do not need to pre-parse date columns before calling `validate_dataframe`.
 
-1. Validate required source columns.
-2. Compute generated columns.
-3. Evaluate rules using input plus computed columns.
+**Supported input formats (flexible mode, default):**
+- ISO: `2024-03-25`, `2024-3-5`
+- US month-first: `03/25/2024`, `3/25/2024`, `3/5/2024`
+- pandas `datetime64` or Python `datetime.date`/`datetime.datetime` objects
+- Timezone-aware timestamps — timezone is stripped (converted to UTC first); only the calendar date is kept
+
+Ambiguous formats where both the month and day are ≤ 12 (e.g. `01/05/2024`) are always read as **month-first** (US convention). If your source data is day-first, declare a strict format via `settings.date_format`.
+
+**Strict format mode:**
+
+Set `date_format` in bundle `settings` to enforce a specific `strftime` pattern. Values that do not match become `NaT` (treated as blank) rather than being guessed.
+
+```yaml
+settings:
+  date_format: "%m/%d/%Y"   # strict US format; non-conforming values become NaT
+```
+
+**Hours and minutes** are discarded. The library works with calendar dates only. Time-of-day components are stripped during normalization regardless of input format.
+
+**`years_since_year`** is not affected by date normalization — it treats its column as a plain integer year.
