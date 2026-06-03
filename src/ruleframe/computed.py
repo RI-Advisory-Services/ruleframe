@@ -171,7 +171,7 @@ def _compute_group_count(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         mask: pd.Series = df[filter_spec["column"]] == filter_spec["equals"]
         group_counts = df.loc[mask].groupby(group_by).size()
         result = df[group_by].map(group_counts)
-        return result.where(mask)
+        return result.fillna(0)
     else:
         group_counts = df.groupby(group_by).size()
         return df[group_by].map(group_counts)

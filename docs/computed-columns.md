@@ -40,7 +40,7 @@ Date computed columns accept columns in any unambiguous string format (ISO `YYYY
 ### Group aggregates
 
 - **`group_sum`** — sum a `value_column` grouped by `group_by`; optional `filter` restricts which rows contribute; non-contributing rows receive NaN
-- **`group_count`** — count rows grouped by `group_by`; optional `filter`; non-contributing rows receive NaN
+- **`group_count`** — count rows grouped by `group_by`; optional `filter` restricts which rows contribute; groups with no matching rows receive 0
 
 #### group_sum / group_count filter
 

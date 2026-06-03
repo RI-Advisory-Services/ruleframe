@@ -247,11 +247,11 @@ def test_group_count_without_filter() -> None:
     assert result.tolist() == [2, 2, 1]
 
 
-def test_group_count_with_filter_returns_nan_on_non_matching_rows() -> None:
+def test_group_count_with_filter_maps_count_to_all_group_rows() -> None:
     df = pd.DataFrame(
         {
-            "Project ID": ["P1", "P1", "P2"],
-            "Status": ["Active", "Pending", "Active"],
+            "Project ID": ["P1", "P1", "P2", "P3"],
+            "Status": ["Active", "Pending", "Active", "Pending"],
         }
     )
     spec = {
@@ -262,8 +262,9 @@ def test_group_count_with_filter_returns_nan_on_non_matching_rows() -> None:
     }
     result = compute_column(df, spec)
     assert result.iloc[0] == 1  # P1 has 1 Active row
-    assert pd.isna(result.iloc[1])  # Pending row — not matching filter
+    assert result.iloc[1] == 1  # P1 count is mapped to every row in the group
     assert result.iloc[2] == 1  # P2 has 1 Active row
+    assert result.iloc[3] == 0  # P3 has no Active rows
 
 
 # ---------------------------------------------------------------------------
@@ -616,13 +617,15 @@ def test_group_count_bef_per_project(group_aggregate_df, group_aggregate_bundle)
     result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project BEF Count"
-    # P1 has 2 BEF rows, P2 has 1 BEF row; non-BEF rows → NaN
+    # P1 has 2 BEF rows, P2 has 1 BEF row, P3 has none.
     p1_bef = annotated.loc[(annotated["Project ID"] == "P1") & (annotated["Measure Type"] == "BEF")]
     assert (p1_bef[col] == 2).all()
     p2_bef = annotated.loc[(annotated["Project ID"] == "P2") & (annotated["Measure Type"] == "BEF")]
     assert p2_bef[col].iloc[0] == 1
     p1_led = annotated.loc[(annotated["Project ID"] == "P1") & (annotated["Measure Type"] == "LED")]
-    assert pd.isna(p1_led[col].iloc[0])
+    assert p1_led[col].iloc[0] == 2
+    p3_rows = annotated.loc[annotated["Project ID"] == "P3"]
+    assert (p3_rows[col] == 0).all()
 
 
 def test_group_count_row_count_per_project(group_aggregate_df, group_aggregate_bundle) -> None:
