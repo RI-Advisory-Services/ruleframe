@@ -112,6 +112,37 @@ def test_from_json_string_non_dict_raises() -> None:
 
 
 # ===========================================================================
+# from_json tests
+# ===========================================================================
+
+
+def test_from_json_parses_rules(sample_json_bundle) -> None:
+    assert sample_json_bundle.version == 1
+    assert [rule["id"] for rule in sample_json_bundle.rules] == [
+        "qaqc_unresolved_issue",
+        "missing_customer_status",
+        "review_required_without_priority",
+        "active_quantity_mismatch",
+        "late_active_inspection",
+    ]
+    # first rule: nested all condition and severity
+    assert sample_json_bundle.rules[0]["severity"] == "error"
+    assert sample_json_bundle.rules[0]["fail_when"]["all"][0]["equals"] == "Yes"
+    # second rule: warning severity and simple is_blank condition
+    assert sample_json_bundle.rules[1]["severity"] == "warning"
+    assert sample_json_bundle.rules[1]["fail_when"]["is_blank"] is True
+    # third rule: not node is parsed correctly
+    assert "not" in sample_json_bundle.rules[2]["fail_when"]["all"][1]
+    # fifth rule: days_apart_greater_than days value
+    assert sample_json_bundle.rules[4]["fail_when"]["all"][1]["days_apart_greater_than"]["days"] == 31
+
+
+def test_from_json_missing_file_raises(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError):
+        RuleBundle.from_json(tmp_path / "nonexistent.json")
+
+
+# ===========================================================================
 # Eager structural validation tests
 # ===========================================================================
 

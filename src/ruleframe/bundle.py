@@ -25,6 +25,11 @@ class RuleBundle:
         return cls.from_yaml_string(content)
 
     @classmethod
+    def from_json(cls, path: str | Path) -> RuleBundle:
+        content = Path(path).read_text(encoding="utf-8")
+        return cls.from_json_string(content)
+
+    @classmethod
     def from_yaml_string(cls, content: str) -> RuleBundle:
         parsed = yaml.safe_load(content)
         if not isinstance(parsed, dict):

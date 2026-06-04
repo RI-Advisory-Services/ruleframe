@@ -21,6 +21,11 @@ def sample_bundle() -> RuleBundle:
 
 
 @pytest.fixture
+def sample_json_bundle() -> RuleBundle:
+    return RuleBundle.from_json(RULES / "sample_rules.json")
+
+
+@pytest.fixture
 def workflow_split_node_df() -> pd.DataFrame:
     return pd.read_csv(DATA / "workflow_split_node_rows.csv")
 
