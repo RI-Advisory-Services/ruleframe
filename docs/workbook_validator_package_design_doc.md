@@ -36,11 +36,21 @@ The package should expose a simple library API:
 ```python
 from ruleframe import RuleBundle, validate_dataframe
 
+# File-based loading (human-authored files on disk)
 bundle = RuleBundle.from_yaml("rules.yaml")
+bundle = RuleBundle.from_json("rules.json")
+
+# String-based loading (S3, database fields, API responses)
+bundle = RuleBundle.from_yaml_string(yaml_text)
+bundle = RuleBundle.from_json_string(json_text)
+
+# Dict-based loading (pre-parsed, e.g. from a Django model or ORM)
+bundle = RuleBundle.from_json_dict(data)
+
 result = validate_dataframe(df, bundle)
 ```
 
-The Django application can load the rules file from S3, a file wrapper, a database field, or another source, then pass its contents into the package. The package should not assume that a folder of rule files exists.
+The Django application can load the rules from S3, a database field, an API response, or a file on disk. Every source has a corresponding loader. The package does not assume any particular storage mechanism.
 
 The same API should also work from scripts, notebooks, ETL jobs, or other Python services.
 
