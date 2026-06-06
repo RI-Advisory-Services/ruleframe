@@ -78,13 +78,13 @@ fail_when:
 
 Boolean nodes can be nested arbitrarily.
 
-### Operators
+### Predicates
 
-All operators take the form `{ column: <name>, <operator>: <value> }`.
+All predicates take the form `{ column: <name>, <predicate>: <value> }`.
 
 #### Equality and comparison
 
-| Operator | Fires when |
+| Predicate | Fires when |
 |---|---|
 | `equals` | column value equals the literal |
 | `not_equals` | column value does not equal the literal; also fires when column is blank |
@@ -99,7 +99,7 @@ All comparisons are null-safe: if either side is blank, the rule does not fire (
 
 Compares two columns in the same row rather than a column against a literal.
 
-| Operator | Fires when |
+| Predicate | Fires when |
 |---|---|
 | `equals_column` | column == other column |
 | `not_equals_column` | column != other column |
@@ -114,9 +114,30 @@ fail_when:
   not_equals_column: Calculated kWh
 ```
 
+#### Date column-to-column comparison
+
+Compares two date columns chronologically. Both columns are automatically normalized to calendar dates before comparison.
+
+| Predicate | Fires when |
+|---|---|
+| `date_equals_column` | column date == other column date |
+| `date_not_equals_column` | column date != other column date; also fires when left column is blank |
+| `date_greater_than_column` | column date is after other column date |
+| `date_greater_than_or_equal_column` | column date is on or after other column date |
+| `date_less_than_column` | column date is before other column date |
+| `date_less_than_or_equal_column` | column date is on or before other column date |
+
+```yaml
+fail_when:
+  column: Date of Intake
+  date_greater_than_or_equal_column: Assessment Date
+```
+
+If either column is blank, the rule does not fire (except `date_not_equals_column` — see above).
+
 #### Membership
 
-| Operator | Value | Fires when |
+| Predicate | Value | Fires when |
 |---|---|---|
 | `in` | list | column value is in the list |
 | `not_in` | list | column value is not in the list |
@@ -129,21 +150,21 @@ fail_when:
 
 #### String containment
 
-| Operator | Value | Fires when |
+| Predicate | Value | Fires when |
 |---|---|---|
 | `contains` | string | column value contains the substring |
 | `not_contains` | string | column value does not contain the substring |
 
 #### Range
 
-| Operator | Value | Fires when |
+| Predicate | Value | Fires when |
 |---|---|---|
 | `between` | `[lower, upper]` | lower <= column <= upper (inclusive) |
 | `not_between` | `[lower, upper]` | column falls outside the range |
 
 #### Blank checks
 
-| Operator | Value | Fires when |
+| Predicate | Value | Fires when |
 |---|---|---|
 | `is_blank` | `true` | column is null, empty string, or whitespace |
 | `is_blank` | `false` | column is not blank (same as `is_not_blank: true`) |
@@ -153,7 +174,7 @@ fail_when:
 
 Date operators compare a date column against a literal date value. The column is normalized automatically (no pre-parsing required). Always write literal dates in ISO format (`YYYY-MM-DD`) in the rule file.
 
-| Operator | Fires when |
+| Predicate | Fires when |
 |---|---|
 | `date_equals` | column date == literal date |
 | `date_greater_than` | column date is after the literal date |
@@ -203,7 +224,7 @@ computed_columns:
 
 ## Date Handling
 
-Columns used in date computed types (`date_diff`, `days_since_today`) and date comparison operators are automatically parsed and normalized to calendar dates before evaluation. You do not need to pre-parse date columns.
+Columns used in date computed types (`date_diff`, `days_since_today`), date comparison predicates (`date_greater_than`, `date_between`, etc.), and date column-to-column predicates (`date_greater_than_column`, `date_less_than_or_equal_column`, etc.) are automatically parsed and normalized to calendar dates before evaluation. You do not need to pre-parse date columns.
 
 **Flexible parsing (default):** ISO (`2024-03-25`), US month-first (`3/25/2024`, `03/25/2024`), and pandas datetime types are all accepted. Ambiguous values where both month and day are ≤ 12 are read as month-first (US convention).
 

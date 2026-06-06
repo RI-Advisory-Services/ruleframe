@@ -3,21 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .exceptions import BundleValidationError
-
-COLUMN_REFERENCE_OPERATORS = {
-    "equals_column": "==",
-    "not_equals_column": "!=",
-    "greater_than_column": ">",
-    "greater_than_or_equal_column": ">=",
-    "less_than_column": "<",
-    "less_than_or_equal_column": "<=",
-}
-
-
-def json_pointer(column_name: str) -> str:
-    """Convert a DataFrame column name to a JSON Pointer variable path."""
-
-    return "/" + column_name.replace("~", "~0").replace("/", "~1")
+from .predicates import PREDICATE_REGISTRY, json_pointer
 
 
 def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
@@ -39,62 +25,11 @@ def compile_condition(condition: dict[str, Any]) -> dict[str, Any]:
         raise BundleValidationError(f"Condition must contain exactly one operator: {condition}")
 
     op = operator_keys[0]
-    expected = condition[op]
 
-    if op == "equals":
-        return {"==": [column_var, expected]}
-    if op == "not_equals":
-        return {"!=": [column_var, expected]}
-    if op in COLUMN_REFERENCE_OPERATORS:
-        return {COLUMN_REFERENCE_OPERATORS[op]: [column_var, {"var": json_pointer(str(expected))}]}
-    if op == "greater_than":
-        return {">": [column_var, expected]}
-    if op == "greater_than_or_equal":
-        return {">=": [column_var, expected]}
-    if op == "less_than":
-        return {"<": [column_var, expected]}
-    if op == "less_than_or_equal":
-        return {"<=": [column_var, expected]}
-    if op == "in":
-        return {"in": [column_var, expected]}
-    if op == "not_in":
-        return {"!": [{"in": [column_var, expected]}]}
-    if op == "contains":
-        return {"contains": [column_var, expected]}
-    if op == "not_contains":
-        return {"!": [{"contains": [column_var, expected]}]}
-    if op == "between":
-        return {"between": [column_var, expected]}
-    if op == "not_between":
-        return {"!": [{"between": [column_var, expected]}]}
-    if op == "is_blank":
-        return {"is_blank": [column_var]} if expected else {"is_not_blank": [column_var]}
-    if op == "is_not_blank":
-        return {"is_not_blank": [column_var]} if expected else {"is_blank": [column_var]}
-    if op == "days_apart_greater_than":
-        return {
-            "date_days_apart_gt": [
-                column_var,
-                {"var": json_pointer(str(expected["column"]))},
-                expected["days"],
-            ]
-        }
-    if op == "date_greater_than":
-        return {"date_gt": [column_var, expected]}
-    if op == "date_greater_than_or_equal":
-        return {"date_gte": [column_var, expected]}
-    if op == "date_less_than":
-        return {"date_lt": [column_var, expected]}
-    if op == "date_less_than_or_equal":
-        return {"date_lte": [column_var, expected]}
-    if op == "date_equals":
-        return {"date_eq": [column_var, expected]}
-    if op == "date_between":
-        return {"date_between": [column_var, expected]}
-    if op == "date_not_between":
-        return {"!": [{"date_between": [column_var, expected]}]}
-
-    raise BundleValidationError(f"Unsupported friendly operator: {op}")
+    predicate_cls = PREDICATE_REGISTRY.get(op)
+    if predicate_cls is None:
+        raise BundleValidationError(f"Unsupported predicate: {op}")
+    return predicate_cls.compile(column_var, condition[op])
 
 
 def compile_rule(rule: dict[str, Any]) -> dict[str, Any]:
@@ -118,13 +53,12 @@ def collect_required_columns(condition: dict[str, Any]) -> set[str]:
         return collect_required_columns(condition["not"])
 
     columns = {str(condition["column"])} if "column" in condition else set()
+    col = str(condition["column"]) if "column" in condition else ""
     for key, value in condition.items():
         if key == "column":
             continue
-        if key in COLUMN_REFERENCE_OPERATORS:
-            columns.add(str(value))
-        elif isinstance(value, dict) and "column" in value:
-            columns.add(str(value["column"]))
+        if cls := PREDICATE_REGISTRY.get(key):
+            columns |= cls.referenced_columns(col, value)
     return columns
 
 

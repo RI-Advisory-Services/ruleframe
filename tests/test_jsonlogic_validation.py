@@ -225,7 +225,7 @@ def _single_rule_bundle(condition: dict) -> RuleBundle:
         ),
     ],
 )
-def test_validate_dataframe_supports_remaining_friendly_operators(
+def test_validate_dataframe_supports_remaining_predicates(
     condition, records, expected_rows
 ) -> None:
     result = validate_dataframe(pd.DataFrame(records), _single_rule_bundle(condition))

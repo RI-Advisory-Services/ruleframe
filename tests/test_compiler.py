@@ -1,14 +1,13 @@
 import pytest
 
 from ruleframe.compiler import (
-    COLUMN_REFERENCE_OPERATORS,
     collect_required_columns,
     collect_rule_columns,
     compile_condition,
     compile_rule,
-    json_pointer,
 )
 from ruleframe.exceptions import BundleValidationError
+from ruleframe.predicates import json_pointer
 
 
 def test_json_pointer_escapes_excel_column_names() -> None:
@@ -49,17 +48,6 @@ def test_collect_required_columns_includes_column_to_column_references() -> None
         "Reported Quantity",
         "Installation Date",
         "Date Inspected",
-    }
-
-
-def test_column_reference_operators_are_centralized() -> None:
-    assert COLUMN_REFERENCE_OPERATORS == {
-        "equals_column": "==",
-        "not_equals_column": "!=",
-        "greater_than_column": ">",
-        "greater_than_or_equal_column": ">=",
-        "less_than_column": "<",
-        "less_than_or_equal_column": "<=",
     }
 
 
@@ -153,9 +141,33 @@ def test_column_reference_operators_are_centralized() -> None:
             {"column": "A", "date_not_between": ["2024-01-01", "2024-12-31"]},
             {"!": [{"date_between": [{"var": "/A"}, ["2024-01-01", "2024-12-31"]]}]},
         ),
+        (
+            {"column": "A", "date_equals_column": "B"},
+            {"date_eq": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "date_not_equals_column": "B"},
+            {"!=": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "date_greater_than_column": "B"},
+            {"date_gt": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "date_greater_than_or_equal_column": "B"},
+            {"date_gte": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "date_less_than_column": "B"},
+            {"date_lt": [{"var": "/A"}, {"var": "/B"}]},
+        ),
+        (
+            {"column": "A", "date_less_than_or_equal_column": "B"},
+            {"date_lte": [{"var": "/A"}, {"var": "/B"}]},
+        ),
     ],
 )
-def test_compile_condition_supports_all_friendly_operators(condition, expected) -> None:
+def test_compile_condition_supports_all_predicates(condition, expected) -> None:
     assert compile_condition(condition) == expected
 
 
@@ -209,7 +221,7 @@ def test_compile_rule_non_dict_fail_when_raises() -> None:
 
 
 def test_compile_condition_unsupported_operator_raises() -> None:
-    with pytest.raises(BundleValidationError, match="Unsupported friendly operator"):
+    with pytest.raises(BundleValidationError, match="Unsupported predicate"):
         compile_condition({"column": "Status", "fuzzy_match": "Active"})
 
 

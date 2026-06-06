@@ -18,6 +18,7 @@ from .computed import (
 from .dates import normalize_date_series
 from .exceptions import InputSchemaError
 from .operators import build_registry
+from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
 
 
@@ -119,50 +120,6 @@ def _date_format(bundle: RuleBundle) -> str | None:
     return None
 
 
-_DATE_IMPLIED_CONDITIONS = frozenset(
-    {
-        "days_apart_greater_than",
-        "date_greater_than",
-        "date_greater_than_or_equal",
-        "date_less_than",
-        "date_less_than_or_equal",
-        "date_equals",
-        "date_between",
-        "date_not_between",
-    }
-)
-
-
-def _infer_date_columns(bundle: RuleBundle) -> set[str]:
-    """Return column names that are structurally implied to be date columns.
-
-    Sources:
-    - ``date_diff`` computed specs: ``start_column`` and ``end_column``
-    - ``days_since_today`` computed specs: ``column``
-    - Rule conditions using date-specific operators (``days_apart_greater_than``,
-      ``date_greater_than``, etc.)
-    """
-    cols: set[str] = set()
-
-    for spec in bundle.computed_columns:
-        t = spec.get("type")
-        if t == "date_diff":
-            if c := spec.get("start_column"):
-                cols.add(str(c))
-            if c := spec.get("end_column"):
-                cols.add(str(c))
-        elif t == "days_since_today":
-            if c := spec.get("column"):
-                cols.add(str(c))
-
-    for rule in bundle.rules:
-        fail_when = rule.get("fail_when")
-        if isinstance(fail_when, dict):
-            cols |= _date_columns_from_condition(fail_when)
-
-    return cols
-
-
 def _date_columns_from_condition(condition: dict) -> set[str]:
     """Recursively collect date columns implied by a condition tree."""
     cols: set[str] = set()
@@ -182,14 +139,39 @@ def _date_columns_from_condition(condition: dict) -> set[str]:
     if not col:
         return cols
 
-    for op in _DATE_IMPLIED_CONDITIONS:
-        if op in condition:
-            cols.add(str(col))
-            # days_apart_greater_than references a second date column
-            if op == "days_apart_greater_than":
-                other = condition[op]
-                if isinstance(other, dict) and (other_col := other.get("column")):
-                    cols.add(str(other_col))
-            break
+    for op_key, value in condition.items():
+        if op_key == "column":
+            continue
+        if cls := PREDICATE_REGISTRY.get(op_key):
+            cols |= cls.date_columns(str(col), value)
+    return cols
+
+
+def _infer_date_columns(bundle: RuleBundle) -> set[str]:
+    """Return column names that are structurally implied to be date columns.
+
+    Sources:
+    - ``date_diff`` computed specs: ``start_column`` and ``end_column``
+    - ``days_since_today`` computed specs: ``column``
+    - Rule conditions using date-aware predicates (``date_greater_than``,
+      ``date_greater_than_or_equal_column``, etc.)
+    """
+    cols: set[str] = set()
+
+    for spec in bundle.computed_columns:
+        t = spec.get("type")
+        if t == "date_diff":
+            if c := spec.get("start_column"):
+                cols.add(str(c))
+            if c := spec.get("end_column"):
+                cols.add(str(c))
+        elif t == "days_since_today":
+            if c := spec.get("column"):
+                cols.add(str(c))
+
+    for rule in bundle.rules:
+        fail_when = rule.get("fail_when")
+        if isinstance(fail_when, dict):
+            cols |= _date_columns_from_condition(fail_when)
 
     return cols
