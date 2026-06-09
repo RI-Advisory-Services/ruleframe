@@ -41,13 +41,13 @@ These predicates always imply the left-hand column must be numeric:
 ### Predicates That Infer Type From the Literal
 
 - `equals` with a YAML-parsed int/float → column is numeric
-- `equals` with a YAML-parsed string → no coercion (column stays as-is)
+- `equals` with a YAML-parsed string → column is string
 - `not_equals` — same logic as `equals`
 
 ### `in` Predicate
 
 - All list items are numeric (int, float, or mix of both) → column is numeric
-- All list items are strings → no coercion
+- All list items are strings → column is string
 - Mixed types (strings AND numbers) → `BundleValidationError` at bundle validation time: the rule is invalid
 
 ### Computed Columns That Imply Numeric
@@ -63,27 +63,19 @@ Arithmetic computed column types imply their source columns are numeric:
 
 Date types (`date_diff`, `days_since_today`) already have their own normalization path and are unaffected.
 
-### `columns:` Schema (Optional Explicit Override)
+### `columns:` Schema — Deferred to v2
 
-Users may declare column types in the bundle for explicit control:
+An explicit `columns:` schema was considered for v1 to allow users to override inferred types. After analysis, we determined that:
 
-```yaml
-columns:
-  Zip Code:
-    type: string
-  Building Square Footage:
-    type: number
-```
+- If inference produces no signal for a column, an explicit declaration has no behavioral effect (string/date columns are not coerced regardless).
+- If inference produces a signal and the explicit declaration agrees, it's a no-op.
+- If inference produces a signal and the explicit declaration contradicts it, the override silently hides what is almost certainly a rule authoring error.
 
-Rules:
-- Partial lists only — declare only what you need to override or clarify.
-- Undeclared columns use inference from rule/computed column structure.
-- Explicit declaration wins over inference (e.g., declare `type: string` to prevent numeric coercion on a column that looks numeric but shouldn't be coerced).
-- v1 supports `type: number | string | date` only. Future versions may add more.
+Rather than providing a mechanism that silently suppresses errors, we defer this feature. If a future use case demonstrates that explicit column declarations add value beyond inference, we will revisit with semantics that raise on contradiction rather than silently overriding.
 
 ## Conflicting Signals
 
-If a column is used with both string semantics (`equals: "Yes"`) and numeric semantics (`greater_than: 100`) across different rules, raise `BundleValidationError` at bundle validation time with a message identifying the conflicting rules and column.
+If a column is used with both string semantics (`equals: "Yes"`) and numeric semantics (`greater_than: 100`) across different rules, raise `BundleValidationError` at bundle validation time with a message identifying the conflicting rules and column. The fix is to correct the rule definitions so all predicates agree on the column type.
 
 ## Pipeline Position
 
@@ -174,26 +166,15 @@ This is a light refactor to align with the new design — not a behavior change.
 
 ### Happy Path — No User Action Needed
 
+ruleframe accepts a DataFrame in any state. Do your own prep work first — fix decimals, rename columns, filter rows — then pass it in. ruleframe uses the rules file to determine which columns need to be numeric and coerces them if needed. If pandas already inferred them correctly during read, the coercion pass is a no-op.
+
 ```python
-df = pd.read_excel("input.xlsx", dtype=str)
+# Works whether pandas inferred dtypes or you read with dtype=str
+df = pd.read_excel("input.xlsx")
 bundle = RuleBundle.from_yaml("rules.yaml")
 result = validate_dataframe(df, bundle)
-# Numeric columns auto-coerced based on rule structure.
-# result.coercion_log shows what happened.
-```
-
-### Explicit Override — Zip Code Protection
-
-```yaml
-columns:
-  Zip Code:
-    type: string
-
-rules:
-  - id: check_zip
-    fail_when:
-      column: Zip Code
-      is_blank: true
+# result.coercion_log shows what ruleframe did (or didn't need to do).
+# event.input_dtype tells you what dtype each column had when it arrived.
 ```
 
 ### Debugging Coercion Issues
@@ -201,13 +182,13 @@ rules:
 ```python
 result = validate_dataframe(df, bundle)
 for event in result.coercion_log:
-    if event.coercion_failures > 0:
-        print(f"{event.column}: {event.coercion_failures} values could not be coerced")
+    print(f"{event.column}: input dtype={event.input_dtype}, failures={event.coercion_failures}")
 ```
 
 ## Out of Scope
 
 - File loading (ruleframe receives a DataFrame, not a file path)
 - Global "always preprocess this way" settings
+- `columns:` schema for explicit type declarations (deferred to v2 — see above)
 - `nullable`, `allowed_values`, or other schema constraints beyond `type`
 - Auto-sorting or resolving conflicting type signals (these are authoring errors)

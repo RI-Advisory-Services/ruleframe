@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from .coercion import CoercionEvent
 
 
 @dataclass(frozen=True)
@@ -21,6 +24,8 @@ class ValidationResult:
 
     annotated: pd.DataFrame
     findings: list[Finding]
+    working_dataframe: pd.DataFrame | None = field(default=None, repr=False)
+    coercion_log: list[CoercionEvent] = field(default_factory=list)
 
     def to_annotated_dataframe(self) -> pd.DataFrame:
         return self.annotated.copy()

@@ -8,6 +8,10 @@ from jsonlogic import JSONLogicExpression
 from jsonlogic.evaluation import evaluate
 
 from .bundle import RuleBundle
+from .coercion import (
+    apply_numeric_coercion,
+    infer_column_types,
+)
 from .compiler import collect_rule_columns, compile_rule
 from .computed import (
     apply_computed_columns,
@@ -22,7 +26,9 @@ from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
 
 
-def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult:
+def validate_dataframe(
+    df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
+) -> ValidationResult:
     """Validate a DataFrame by compiling friendly rules to JsonLogic."""
 
     validate_computed_column_specs(bundle.computed_columns)
@@ -38,15 +44,22 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
     if missing:
         raise InputSchemaError("Input is missing required rule column(s): " + ", ".join(missing))
 
+    # --- Type inference and coercion ---
+    column_types = infer_column_types(bundle.rules, bundle.computed_columns)
+
+    working_df, coercion_log = apply_numeric_coercion(df, column_types, warn=warn)
+
+    # --- Date normalization ---
     date_fmt = _date_format(bundle)
     date_cols = _infer_date_columns(bundle)
-    working_df = df.copy()
     for col in date_cols:
         if col in working_df.columns:
             working_df[col] = normalize_date_series(working_df[col], fmt=date_fmt)
 
+    # --- Computed columns ---
     working_df = apply_computed_columns(working_df, bundle.computed_columns)
 
+    # --- Compile and evaluate rules ---
     registry = build_registry()
     compiled_rules = [
         (rule, JSONLogicExpression.from_json(compile_rule(rule)).as_operator_tree(registry))
@@ -55,9 +68,8 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
 
     findings: list[Finding] = []
     messages_by_row: dict[int, list[str]] = defaultdict(list)
-    annotated = working_df.copy()
 
-    for row_pos, (_, row) in enumerate(annotated.iterrows()):
+    for row_pos, (_, row) in enumerate(working_df.iterrows()):
         row_data = _row_to_json_data(row)
         for rule, operator_tree in compiled_rules:
             if not bool(evaluate(operator_tree, row_data, None)):
@@ -75,10 +87,23 @@ def validate_dataframe(df: pd.DataFrame, bundle: RuleBundle) -> ValidationResult
             )
             messages_by_row[row_pos].append(message)
 
+    # --- Build annotated output from original df + computed columns ---
+    annotated = df.copy()
+    # Add computed columns to the annotated output (from working_df)
+    computed_names = collect_computed_column_names(bundle.computed_columns)
+    for col_name in computed_names:
+        if col_name in working_df.columns:
+            annotated[col_name] = working_df[col_name].values
+
     annotated[_validation_errors_column(bundle)] = [
         " | ".join(messages_by_row.get(i, [])) for i, _ in enumerate(annotated.index)
     ]
-    return ValidationResult(annotated=annotated, findings=findings)
+    return ValidationResult(
+        annotated=annotated,
+        findings=findings,
+        working_dataframe=working_df,
+        coercion_log=coercion_log,
+    )
 
 
 def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:

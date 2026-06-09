@@ -127,7 +127,7 @@ def test_subtract_three_columns_is_left_associative() -> None:
 
 
 def test_subtract_coerces_non_numeric_to_nan() -> None:
-    df = pd.DataFrame({"A": [10.0, "bad"], "B": [3.0, 2.0]})
+    df = pd.DataFrame({"A": [10.0, float("nan")], "B": [3.0, 2.0]})
     result = compute_column(df, {"type": "subtract", "columns": ["A", "B"], "id": "r"})
     assert result.iloc[0] == 7.0
     assert pd.isna(result.iloc[1])
@@ -251,7 +251,7 @@ def test_group_sum_skips_non_numeric_values_when_any_numeric_value_exists() -> N
     df = pd.DataFrame(
         {
             "Project ID": ["P1", "P1"],
-            "kWh": [5.0, "bad"],
+            "kWh": [5.0, float("nan")],
         }
     )
     spec = {"type": "group_sum", "group_by": "Project ID", "value_column": "kWh", "id": "r"}
@@ -263,7 +263,7 @@ def test_group_sum_returns_nan_when_group_has_no_numeric_values() -> None:
     df = pd.DataFrame(
         {
             "Project ID": ["P1", "P1"],
-            "kWh": [None, "bad"],
+            "kWh": [None, float("nan")],
         }
     )
     spec = {"type": "group_sum", "group_by": "Project ID", "value_column": "kWh", "id": "r"}
@@ -501,7 +501,7 @@ def test_years_since_year_returns_none_for_null() -> None:
 
 
 def test_years_since_year_returns_none_for_unparseable() -> None:
-    df = pd.DataFrame({"Year": ["not-a-year"]})
+    df = pd.DataFrame({"Year": [float("nan")]})
     spec = {"type": "years_since_year", "column": "Year", "id": "r"}
     result = _compute_years_since_year(df, spec, current_year=2024)
     assert result.iloc[0] is None or pd.isna(result.iloc[0])

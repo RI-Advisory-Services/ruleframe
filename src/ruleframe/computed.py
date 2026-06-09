@@ -114,28 +114,25 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     column_type = spec.get("type")
     if column_type == "sum":
         columns = computed_source_columns(spec)
-        numeric = df[columns].apply(pd.to_numeric, errors="coerce")
-        return pd.Series(numeric.sum(axis=1, min_count=1), index=df.index)
+        return pd.Series(df[columns].sum(axis=1, min_count=1), index=df.index)
     if column_type == "subtract":
         columns = computed_source_columns(spec)
-        numeric = df[columns].apply(pd.to_numeric, errors="coerce")
-        result: pd.Series = numeric.iloc[:, 0].copy()
+        result: pd.Series = df[columns[0]].copy()
         for i in range(1, len(columns)):
-            result = result - numeric.iloc[:, i]
+            result = result - df[columns[i]]
         return result
     if column_type == "multiply":
         columns = computed_source_columns(spec)
-        numeric = df[columns].apply(pd.to_numeric, errors="coerce")
-        mul_result: pd.Series = numeric.iloc[:, 0].copy()
+        mul_result: pd.Series = df[columns[0]].copy()
         for i in range(1, len(columns)):
-            mul_result = mul_result * numeric.iloc[:, i]
+            mul_result = mul_result * df[columns[i]]
         return mul_result
     if column_type == "divide":
         columns = computed_source_columns(spec)
         if len(columns) != 2:
             raise ValueError("divide requires exactly 2 columns")
-        numerator = pd.to_numeric(df[columns[0]], errors="coerce")
-        denominator = pd.to_numeric(df[columns[1]], errors="coerce")
+        numerator = df[columns[0]]
+        denominator = df[columns[1]]
         return numerator / denominator.where(denominator != 0)
     if column_type == "coalesce":
         columns = computed_source_columns(spec)
@@ -161,14 +158,14 @@ def _compute_group_sum(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if not group_by or not value_column:
         raise ValueError("group_sum requires group_by and value_column")
 
-    numeric_values = pd.to_numeric(df[value_column], errors="coerce")
+    values = df[value_column]
     filter_spec: dict[str, Any] | None = spec.get("filter")
     if filter_spec:
         mask: pd.Series = df[filter_spec["column"]] == filter_spec["equals"]
-        group_totals = numeric_values[mask].groupby(df.loc[mask, group_by]).sum(min_count=1)
+        group_totals = values[mask].groupby(df.loc[mask, group_by]).sum(min_count=1)
         return df[group_by].map(group_totals)
     else:
-        group_totals = numeric_values.groupby(df[group_by]).sum(min_count=1)
+        group_totals = values.groupby(df[group_by]).sum(min_count=1)
         return df[group_by].map(group_totals)
 
 
@@ -229,8 +226,8 @@ def _compute_years_since_year(
         raise ValueError("years_since_year requires column")
 
     year = current_year if current_year is not None else datetime.date.today().year
-    numeric = pd.to_numeric(df[column], errors="coerce")
-    result = (year - numeric.astype("Float64").round(0)).astype("Float64")
+    col_values = df[column].astype("Float64").round(0)
+    result = (year - col_values).astype("Float64")
     return result
 
 
