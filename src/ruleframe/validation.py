@@ -20,7 +20,7 @@ from .computed import (
     validate_computed_column_specs,
 )
 from .dates import normalize_date_series
-from .exceptions import InputSchemaError
+from .exceptions import BundleValidationError, InputSchemaError
 from .operators import build_registry
 from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
@@ -47,11 +47,19 @@ def validate_dataframe(
     # --- Type inference and coercion ---
     column_types = infer_column_types(bundle.rules, bundle.computed_columns)
 
+    # --- Cross-check: date columns must not also have numeric/string signals ---
+    date_fmt = _date_format(bundle)
+    date_cols = _infer_date_columns(bundle)
+    overlap = date_cols & set(column_types.keys())
+    if overlap:
+        raise BundleValidationError(
+            f"Column(s) {sorted(overlap)} are used with both date predicates and "
+            f"numeric/string predicates. A column cannot serve two roles."
+        )
+
     working_df, coercion_log = apply_numeric_coercion(df, column_types, warn=warn)
 
     # --- Date normalization ---
-    date_fmt = _date_format(bundle)
-    date_cols = _infer_date_columns(bundle)
     for col in date_cols:
         if col in working_df.columns:
             working_df[col] = normalize_date_series(working_df[col], fmt=date_fmt)

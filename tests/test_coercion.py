@@ -48,6 +48,32 @@ class TestInferColumnTypesFromPredicates:
         result = infer_column_types(rules, [])
         assert result["Status"] == "numeric"
 
+    def test_equals_with_bool_implies_boolean(self) -> None:
+        # bool is a subclass of int in Python — must not be misidentified as numeric
+        rules = [{"id": "r1", "fail_when": {"column": "Inspected", "equals": True}}]
+        result = infer_column_types(rules, [])
+        assert result["Inspected"] == "boolean"
+
+    def test_not_equals_with_bool_implies_boolean(self) -> None:
+        rules = [{"id": "r1", "fail_when": {"column": "Inspected", "not_equals": False}}]
+        result = infer_column_types(rules, [])
+        assert result["Inspected"] == "boolean"
+
+    def test_in_all_bools_implies_boolean(self) -> None:
+        rules = [{"id": "r1", "fail_when": {"column": "Flag", "in": [True, False]}}]
+        result = infer_column_types(rules, [])
+        assert result["Flag"] == "boolean"
+
+    def test_bool_and_int_do_not_conflict(self) -> None:
+        # Different columns — no conflict
+        rules = [
+            {"id": "r1", "fail_when": {"column": "BoolCol", "equals": True}},
+            {"id": "r2", "fail_when": {"column": "IntCol", "equals": 1}},
+        ]
+        result = infer_column_types(rules, [])
+        assert result["BoolCol"] == "boolean"
+        assert result["IntCol"] == "numeric"
+
     def test_equals_with_string_implies_string(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": "Active"}}]
         result = infer_column_types(rules, [])
@@ -188,6 +214,28 @@ class TestConflictDetection:
             {"id": "r2", "fail_when": {"column": "X", "equals": "Active"}},
         ]
         with pytest.raises(BundleValidationError, match="conflicting type signals"):
+            infer_column_types(rules, [])
+
+    def test_boolean_and_numeric_conflict_raises(self) -> None:
+        rules = [
+            {"id": "r1", "fail_when": {"column": "X", "equals": True}},
+            {"id": "r2", "fail_when": {"column": "X", "greater_than": 0}},
+        ]
+        with pytest.raises(BundleValidationError, match="conflicting type signals"):
+            infer_column_types(rules, [])
+
+    def test_boolean_and_string_conflict_raises(self) -> None:
+        rules = [
+            {"id": "r1", "fail_when": {"column": "X", "equals": True}},
+            {"id": "r2", "fail_when": {"column": "X", "equals": "Yes"}},
+        ]
+        with pytest.raises(BundleValidationError, match="conflicting type signals"):
+            infer_column_types(rules, [])
+
+    def test_in_bool_and_numeric_conflict_raises(self) -> None:
+        # bool mixed with int in same list
+        rules = [{"id": "r1", "fail_when": {"column": "X", "in": [True, 1, 2]}}]
+        with pytest.raises(BundleValidationError, match="mixed types"):
             infer_column_types(rules, [])
 
     def test_same_type_signals_do_not_conflict(self) -> None:
@@ -334,6 +382,49 @@ class TestValidateDataframeCoercion:
         result = validate_dataframe(df, bundle)
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
+
+    def test_bool_column_not_coerced_and_comparison_works(self) -> None:
+        """Boolean columns are passed through unchanged; not_equals: true fires for False rows."""
+        df = pd.DataFrame({"Inspected": [True, False, True]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "r1",
+                        "fail_when": {"column": "Inspected", "not_equals": True},
+                        "message": "Not inspected",
+                    }
+                ]
+            }
+        )
+        result = validate_dataframe(df, bundle)
+        # Only row 1 (False) should fire
+        assert len(result.findings) == 1
+        assert result.findings[0].row_index == 1
+        # Boolean column not in coercion log (boolean signal, no numeric coercion)
+        assert not any(e.column == "Inspected" for e in result.coercion_log)
+
+    def test_date_column_used_as_numeric_raises(self) -> None:
+        """A column used with both date predicates and numeric predicates raises."""
+        df = pd.DataFrame({"EventDate": ["2024-01-01", "2024-06-01"]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "r1",
+                        "fail_when": {"column": "EventDate", "date_greater_than": "2024-01-01"},
+                        "message": "Too early",
+                    },
+                    {
+                        "id": "r2",
+                        "fail_when": {"column": "EventDate", "greater_than": 100},
+                        "message": "Too large",
+                    },
+                ]
+            }
+        )
+        with pytest.raises(BundleValidationError, match="date predicates and numeric"):
+            validate_dataframe(df, bundle)
 
     def test_mixed_in_list_raises_at_validation_time(self) -> None:
         df = pd.DataFrame({"X": ["a", "b"]})

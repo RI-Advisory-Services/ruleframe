@@ -42,13 +42,26 @@ These predicates always imply the left-hand column must be numeric:
 
 - `equals` with a YAML-parsed int/float → column is numeric
 - `equals` with a YAML-parsed string → column is string
+- `equals` with a YAML-parsed bool (`true`/`false`) → **no type signal** (see Boolean Columns below)
 - `not_equals` — same logic as `equals`
 
 ### `in` Predicate
 
 - All list items are numeric (int, float, or mix of both) → column is numeric
 - All list items are strings → column is string
+- All list items are bools → no type signal (see Boolean Columns below)
 - Mixed types (strings AND numbers) → `BundleValidationError` at bundle validation time: the rule is invalid
+
+### Boolean Columns
+
+YAML `true`/`false` are Python `bool` values. Because `bool` is a subclass of `int` in Python, they would incorrectly match `isinstance(value, int)` if not handled first. ruleframe explicitly checks for `bool` before `int` in type inference, so boolean literals produce a `"boolean"` type signal — the column is tracked, participates in conflict detection, and is left as-is (no coercion).
+
+**The rule literal is the contract for boolean columns:**
+- `equals: true` → the column contains Python `True`/`False` (pandas `bool` or `object` dtype with bool values)
+- `equals: 1` → the column contains integers (numeric coercion applies)
+- `equals: "True"` → the column contains the string `"True"` (no coercion, string comparison)
+
+If the data source stores booleans as integers (`1`/`0`) or strings (`"TRUE"`/`"FALSE"`), the rule author is responsible for writing the literal to match the actual representation in the DataFrame. ruleframe does not attempt to reconcile mixed boolean representations — this is a rule authoring responsibility.
 
 ### Computed Columns That Imply Numeric
 
@@ -75,7 +88,11 @@ Rather than providing a mechanism that silently suppresses errors, we defer this
 
 ## Conflicting Signals
 
-If a column is used with both string semantics (`equals: "Yes"`) and numeric semantics (`greater_than: 100`) across different rules, raise `BundleValidationError` at bundle validation time with a message identifying the conflicting rules and column. The fix is to correct the rule definitions so all predicates agree on the column type.
+Any column inferred as more than one type raises `BundleValidationError` at validation time. This covers all combinations: numeric vs string, numeric vs boolean, string vs boolean. The fix is always to correct the rule definitions so all predicates agree on the column type.
+
+### Date vs Numeric/String Cross-Check
+
+Date columns are inferred by a separate path (`_infer_date_columns`) that looks for date predicates (`date_equals`, `date_greater_than_column`, etc.) and date-type computed specs (`date_diff`, `days_since_today`). After both inference passes run, ruleframe checks for overlap: if any column appears in both the date set and the numeric/string map, a `BundleValidationError` is raised. A column cannot be used as both a date and a numeric/string value.
 
 ## Pipeline Position
 
@@ -85,11 +102,12 @@ The coercion pass runs inside `validate_dataframe`:
 2. Check for missing required columns
 3. Check for computed column name collisions
 4. **Infer column types from rules + computed column specs**
-5. **Coerce columns on a working copy** (not the original)
-6. Normalize date columns (existing behavior)
-7. Apply computed columns (existing behavior, simplified — see below)
-8. Evaluate rules
-9. Build output
+5. **Infer date columns; cross-check for date/numeric-string overlap**
+6. **Coerce numeric columns on a working copy** (not the original)
+7. Normalize date columns (existing behavior)
+8. Apply computed columns (existing behavior, simplified — see below)
+9. Evaluate rules
+10. Build output
 
 ## Internal Architecture
 

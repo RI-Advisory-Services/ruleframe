@@ -65,7 +65,12 @@ class CoercionEvent:
 
 
 def _infer_type_from_literal(value: Any) -> str | None:
-    """Return 'numeric' or 'string' based on a YAML-parsed literal value."""
+    """Return 'numeric', 'string', 'boolean', or None based on a YAML-parsed literal value.
+
+    bool must be checked before int because bool is a subclass of int in Python.
+    """
+    if isinstance(value, bool):
+        return "boolean"
     if isinstance(value, (int, float)):
         return "numeric"
     if isinstance(value, str):
@@ -74,13 +79,21 @@ def _infer_type_from_literal(value: Any) -> str | None:
 
 
 def _infer_type_from_in_list(items: list) -> str | None:
-    """Return 'numeric', 'string', or raise BundleValidationError for mixed."""
+    """Return 'numeric', 'string', 'boolean', or 'mixed' based on list item types.
+
+    bool must be checked before int — bool is a subclass of int in Python.
+    """
     if not items:
         return None
-    has_numeric = any(isinstance(v, (int, float)) for v in items)
+    has_bool = any(isinstance(v, bool) for v in items)
+    has_numeric = any(isinstance(v, (int, float)) and not isinstance(v, bool) for v in items)
     has_string = any(isinstance(v, str) for v in items)
+    if has_bool and (has_numeric or has_string):
+        return "mixed"  # caller will raise
     if has_numeric and has_string:
         return "mixed"  # caller will raise
+    if has_bool:
+        return "boolean"
     if has_numeric:
         return "numeric"
     if has_string:
@@ -188,7 +201,7 @@ def infer_column_types(
 ) -> dict[str, str]:
     """Infer column types from rule structure and computed column specs.
 
-    Returns a dict mapping column_name -> "numeric" | "string".
+    Returns a dict mapping column_name -> "numeric" | "string" | "boolean".
     Raises BundleValidationError if conflicting signals are detected.
     """
     # signals: column_name -> [(type, source_description), ...]
@@ -208,19 +221,19 @@ def infer_column_types(
     resolved: dict[str, str] = {}
     for col, type_signals in signals.items():
         types_seen = {t for t, _ in type_signals}
-        if "numeric" in types_seen and "string" in types_seen:
-            numeric_sources = [src for t, src in type_signals if t == "numeric"]
-            string_sources = [src for t, src in type_signals if t == "string"]
+        # Any combination of distinct types is a conflict
+        if len(types_seen) > 1:
+            by_type: dict[str, list[str]] = {}
+            for t, src in type_signals:
+                by_type.setdefault(t, []).append(src)
+            details = "; ".join(
+                f"{t} (from {', '.join(srcs)})" for t, srcs in by_type.items()
+            )
             raise BundleValidationError(
-                f"Column {col!r} has conflicting type signals: "
-                f"numeric (from {numeric_sources[0]}) vs "
-                f"string (from {string_sources[0]}). "
+                f"Column {col!r} has conflicting type signals: {details}. "
                 f"Fix the rule definitions so all predicates agree on the column type."
             )
-        if "numeric" in types_seen:
-            resolved[col] = "numeric"
-        elif "string" in types_seen:
-            resolved[col] = "string"
+        resolved[col] = next(iter(types_seen))
 
     return resolved
 
