@@ -7,14 +7,12 @@ computed column specs, then apply a single coercion pass before evaluation.
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
 
 from .exceptions import BundleValidationError, InputSchemaError
-from .predicates import PREDICATE_REGISTRY
-
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -146,9 +144,7 @@ def _infer_types_from_condition(
         if op_key in ("equals", "not_equals"):
             inferred = _infer_type_from_literal(value)
             if inferred:
-                signals.setdefault(col, []).append(
-                    (inferred, f"{op_key} in rule {rule_id!r}")
-                )
+                signals.setdefault(col, []).append((inferred, f"{op_key} in rule {rule_id!r}"))
             continue
 
         # in / not_in — infer from list item types
@@ -162,9 +158,7 @@ def _infer_types_from_condition(
                         f"All items must be the same type."
                     )
                 if inferred:
-                    signals.setdefault(col, []).append(
-                        (inferred, f"{op_key} in rule {rule_id!r}")
-                    )
+                    signals.setdefault(col, []).append((inferred, f"{op_key} in rule {rule_id!r}"))
             continue
 
 
@@ -226,9 +220,7 @@ def infer_column_types(
             by_type: dict[str, list[str]] = {}
             for t, src in type_signals:
                 by_type.setdefault(t, []).append(src)
-            details = "; ".join(
-                f"{t} (from {', '.join(srcs)})" for t, srcs in by_type.items()
-            )
+            details = "; ".join(f"{t} (from {', '.join(srcs)})" for t, srcs in by_type.items())
             raise BundleValidationError(
                 f"Column {col!r} has conflicting type signals: {details}. "
                 f"Fix the rule definitions so all predicates agree on the column type."
@@ -313,4 +305,3 @@ def apply_numeric_coercion(
         working[col] = converted
 
     return working, log
-

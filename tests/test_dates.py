@@ -3,10 +3,8 @@
 import datetime
 
 import pandas as pd
-import pytest
 
 from ruleframe.dates import normalize_date_series, parse_date_value
-
 
 # ===========================================================================
 # normalize_date_series — flexible parsing (no fmt)

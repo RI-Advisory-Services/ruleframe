@@ -185,7 +185,6 @@ def _compute_group_count(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return df[group_by].map(group_counts)
 
 
-
 def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     """Return (end_column - start_column) in whole days."""
     start_col: str | None = spec.get("start_column")

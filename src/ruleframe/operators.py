@@ -431,5 +431,3 @@ def is_blank(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip() == ""
     return False
-
-

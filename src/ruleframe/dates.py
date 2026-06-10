@@ -18,7 +18,7 @@ Parsing strategy (flexible mode, no ``fmt`` supplied):
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from dateutil import parser as date_parser
@@ -41,10 +41,10 @@ def normalize_date_series(series: pd.Series, fmt: str | None = None) -> pd.Serie
     """
     # Already a datetime dtype — only need to strip timezone and normalize
     if pd.api.types.is_datetime64_any_dtype(series):
-        result = series
+        result: pd.Series = series
         if hasattr(result, "dt") and result.dt.tz is not None:
             result = result.dt.tz_convert("UTC").dt.tz_localize(None)
-        return result.dt.normalize()
+        return cast(pd.Series, result.dt.normalize())
 
     if fmt is not None:
         result = pd.to_datetime(series, format=fmt, errors="coerce")

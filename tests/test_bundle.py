@@ -134,7 +134,9 @@ def test_from_json_parses_rules(sample_json_bundle) -> None:
     # third rule: not node is parsed correctly
     assert "not" in sample_json_bundle.rules[2]["fail_when"]["all"][1]
     # fifth rule: days_apart_greater_than days value
-    assert sample_json_bundle.rules[4]["fail_when"]["all"][1]["days_apart_greater_than"]["days"] == 31
+    assert (
+        sample_json_bundle.rules[4]["fail_when"]["all"][1]["days_apart_greater_than"]["days"] == 31
+    )
 
 
 def test_from_json_missing_file_raises(tmp_path) -> None:

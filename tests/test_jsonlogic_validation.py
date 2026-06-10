@@ -325,9 +325,7 @@ def test_date_between_fires_within_inclusive_range() -> None:
 
 
 def test_date_not_between_fires_outside_range() -> None:
-    df = pd.DataFrame(
-        {"Event Date": ["2024-01-01", "2024-03-01", "2024-06-01", "2024-12-31"]}
-    )
+    df = pd.DataFrame({"Event Date": ["2024-01-01", "2024-03-01", "2024-06-01", "2024-12-31"]})
     bundle = _date_op_bundle("r", "date_not_between", ["2024-03-01", "2024-06-01"])
     result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]

@@ -9,12 +9,10 @@ import pytest
 
 from ruleframe import RuleBundle, validate_dataframe
 from ruleframe.coercion import (
-    CoercionEvent,
     apply_numeric_coercion,
     infer_column_types,
 )
 from ruleframe.exceptions import BundleValidationError, InputSchemaError
-
 
 # ---------------------------------------------------------------------------
 # Type inference from predicates
@@ -487,9 +485,7 @@ class TestValidateDataframeCoercion:
         df = pd.DataFrame({"A": ["10", "20"], "B": ["3", "5"]})
         bundle = RuleBundle.from_json_dict(
             {
-                "computed_columns": [
-                    {"type": "sum", "columns": ["A", "B"], "name": "Total"}
-                ],
+                "computed_columns": [{"type": "sum", "columns": ["A", "B"], "name": "Total"}],
                 "rules": [
                     {
                         "id": "r1",
