@@ -1,0 +1,56 @@
+version: 1
+
+computed_columns:
+  # group_sum filtered to BEF rows only: project total kWh for BEF measures
+  - id: project_bef_kwh
+    name: Project BEF Total kWh
+    type: group_sum
+    group_by: Project ID
+    value_column: kWh
+    filter:
+      column: Measure Type
+      equals: BEF
+
+  # group_sum filtered to H&S rows only: project total incentive for H&S measures
+  - id: project_hs_incentive
+    name: Project H&S Total Incentive
+    type: group_sum
+    group_by: Project ID
+    value_column: Incentive
+    filter:
+      column: Measure Type
+      equals: "H&S"
+
+  # group_sum no filter: total kWh per project across all measure types
+  - id: project_total_kwh
+    name: Project Total kWh
+    type: group_sum
+    group_by: Project ID
+    value_column: kWh
+
+  # group_count filtered: number of BEF measures per project
+  - id: project_bef_count
+    name: Project BEF Count
+    type: group_count
+    group_by: Project ID
+    filter:
+      column: Measure Type
+      equals: BEF
+
+  # group_count no filter: total rows per project
+  - id: project_row_count
+    name: Project Row Count
+    type: group_count
+    group_by: Project ID
+
+rules:
+  - id: high_bef_kwh
+    name: High BEF project total kWh
+    severity: warning
+    fail_when:
+      all:
+        - column: Measure Type
+          equals: BEF
+        - column: Project BEF Total kWh
+          greater_than: 100
+    message: Project BEF total kWh exceeds 100.

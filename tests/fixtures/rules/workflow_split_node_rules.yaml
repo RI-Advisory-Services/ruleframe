@@ -1,0 +1,51 @@
+version: 1
+rules:
+  - id: unresolved_priority_or_safety_issue
+    name: Unresolved priority or safety issue
+    severity: error
+    fail_when:
+      all:
+        - any:
+            - column: Issue Category
+              equals: Safety
+            - column: Priority Review
+              equals: "Yes"
+        - column: QA/QC Resolved
+          is_blank: true
+    message: Priority or safety issue is unresolved.
+
+  - id: manual_review_not_prioritized
+    name: Manual review not prioritized
+    severity: warning
+    fail_when:
+      all:
+        - column: Manual Review Required
+          equals: "Yes"
+        - not:
+            column: Priority Review
+            equals: "Yes"
+    message: Manual review is required without priority review.
+
+  - id: active_quantity_mismatch
+    name: Active quantity mismatch
+    severity: error
+    fail_when:
+      all:
+        - column: Application Status
+          equals: Active
+        - column: Installed Quantity
+          not_equals_column: Reported Quantity
+    message: Active application quantities do not match.
+
+  - id: late_active_inspection
+    name: Late active inspection
+    severity: error
+    fail_when:
+      all:
+        - column: Application Status
+          equals: Active
+        - column: Installation Date
+          days_apart_greater_than:
+            column: Date Inspected
+            days: 31
+    message: Active application inspection is more than 31 days from installation.

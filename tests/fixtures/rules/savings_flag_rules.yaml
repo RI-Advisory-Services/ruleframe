@@ -1,0 +1,19 @@
+version: 1
+
+computed_columns:
+  - id: all_savings_zero_or_blank
+    name: All Savings Zero or Blank
+    type: all_blank_or_zero
+    columns:
+      - kWh
+      - kW
+      - Therms
+
+rules:
+  - id: no_savings_recorded
+    name: No savings recorded
+    severity: error
+    fail_when:
+      column: All Savings Zero or Blank
+      equals: 1
+    message: All savings columns are zero or blank for this row.

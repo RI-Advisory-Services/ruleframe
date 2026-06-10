@@ -1,0 +1,5 @@
+Row ID,Output BTU,Input BTU,kWh Savings,Therm Savings,kW Savings,Reported Total
+R1,1000,500,10,5,2,17
+R2,800,400,8,0,1,9
+R3,600,0,6,3,0,9
+R4,0,200,,4,1,5

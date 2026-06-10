@@ -1,0 +1,24 @@
+version: 1
+computed_columns:
+  - id: total_measure_savings
+    name: Total Measure Savings
+    type: sum
+    columns:
+      - Measure Gross kWh Savings
+      - Measure Gross Therm Savings
+rules:
+  - id: total_savings_mismatch
+    name: Total savings mismatch
+    severity: error
+    fail_when:
+      column: Total Measure Savings
+      not_equals_column: Reported Total Savings
+    message: Total Measure Savings does not match Reported Total Savings.
+
+  - id: unusually_high_total_savings
+    name: Unusually high total savings
+    severity: warning
+    fail_when:
+      column: Total Measure Savings
+      greater_than: 20
+    message: Total Measure Savings is unusually high.

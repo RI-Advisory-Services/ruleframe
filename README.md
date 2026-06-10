@@ -27,7 +27,17 @@ pytest
 ```python
 from ruleframe import RuleBundle, validate_dataframe
 
-bundle = RuleBundle.from_yaml(rules_yaml)
+# Load from a YAML or JSON file
+bundle = RuleBundle.from_yaml("rules.yaml")
+bundle = RuleBundle.from_json("rules.json")
+
+# Load from raw string content (e.g. from S3, a database field, or an API response)
+bundle = RuleBundle.from_yaml_string(yaml_text)
+bundle = RuleBundle.from_json_string(json_text)
+
+# Load from a pre-parsed dict (e.g. from a Django model or ORM)
+bundle = RuleBundle.from_json_dict(data)
+
 result = validate_dataframe(df, bundle)
 ```
 

@@ -13,6 +13,7 @@ dist/
 # Virtual env
 .venv/
 venv/
+.venv-jupyter/
 
 # Test / tooling
 .pytest_cache/

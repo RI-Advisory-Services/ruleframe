@@ -1,4 +1,4 @@
-Selected for QA/QC,Issues noted during QA/QC appointment?,QA/QC Resolved,Customer Status
-Yes,Yes,,
-Yes,No,,Active
-No,No,,
+Selected for QA/QC,Issues noted during QA/QC appointment?,QA/QC Resolved,Customer Status,Application Status,Manual Review Required,Priority Review,Installation Date,Date Inspected,Installed Quantity,Reported Quantity
+Yes,Yes,,,Active,No,No,2026-01-01,2026-01-20,10,10
+Yes,No,,Active,Cancelled,No,No,2026-02-01,2026-02-05,5,5
+No,No,,,Active,Yes,No,2026-03-01,2026-04-10,8,9
