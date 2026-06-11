@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "RuleFrame Contributors" }
+  { name = "Neil Leonard" }
 ]
 keywords = ["validation", "dataframe", "rules", "jsonlogic", "excel"]
 classifiers = [
