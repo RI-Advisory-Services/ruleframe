@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "RuleFrame Contributors" }
+  { name = "Neil Leonard" }
 ]
 keywords = ["validation", "dataframe", "rules", "jsonlogic", "excel"]
 classifiers = [
@@ -57,10 +57,10 @@ jupyter = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/ruleframe"
-Documentation = "https://github.com/your-org/ruleframe/tree/main/docs"
-Repository = "https://github.com/your-org/ruleframe"
-Issues = "https://github.com/your-org/ruleframe/issues"
+Homepage = "https://github.com/RI-Advisory-Services/ruleframe"
+Documentation = "https://github.com/RI-Advisory-Services/ruleframe/tree/main/docs"
+Repository = "https://github.com/RI-Advisory-Services/ruleframe"
+Issues = "https://github.com/RI-Advisory-Services/ruleframe/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
