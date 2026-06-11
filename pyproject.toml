@@ -57,10 +57,10 @@ jupyter = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/ruleframe"
-Documentation = "https://github.com/your-org/ruleframe/tree/main/docs"
-Repository = "https://github.com/your-org/ruleframe"
-Issues = "https://github.com/your-org/ruleframe/issues"
+Homepage = "https://github.com/RI-Advisory-Services/ruleframe"
+Documentation = "https://github.com/RI-Advisory-Services/ruleframe/tree/main/docs"
+Repository = "https://github.com/RI-Advisory-Services/ruleframe"
+Issues = "https://github.com/RI-Advisory-Services/ruleframe/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
