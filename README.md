@@ -49,20 +49,30 @@ df = pd.DataFrame(
 bundle = RuleBundle.from_yaml_string(rules_yaml)
 result = validate_dataframe(df, bundle)
 
-print(result.to_findings_dataframe())
-print(result.to_annotated_dataframe())
+print(f"{len(result.findings)} finding(s)")
+for finding in result.findings:
+    print(f"- row {finding.row_index}: [{finding.severity}] {finding.rule_id}")
+    print(f"  {finding.message}")
+
+annotated = result.to_annotated_dataframe()
+print("\nRows:")
+for row_index, row in annotated.iterrows():
+    name = row["Customer Name"] or "(missing)"
+    message = row["Validation Errors"] or "OK"
+    print(f"- row {row_index}: {row['Status']}, {name} -> {message}")
 ```
 
 Expected output:
 
 ```text
- row_index                      rule_id rule_name severity                            message
-         0 active_customer_missing_name      None    error Active customers must have a name.
+1 finding(s)
+- row 0: [error] active_customer_missing_name
+  Active customers must have a name.
 
-   Status Customer Name                       Validation Errors
-0  Active               Active customers must have a name.
-1  Closed  Grace Hopper
-2  Active  Ada Lovelace
+Rows:
+- row 0: Active, (missing) -> Active customers must have a name.
+- row 1: Closed, Grace Hopper -> OK
+- row 2: Active, Ada Lovelace -> OK
 ```
 
 `validate_dataframe()` returns a `ValidationResult` with:
