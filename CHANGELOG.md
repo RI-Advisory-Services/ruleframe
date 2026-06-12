@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 This project is still alpha. Before `1.0.0`, minor releases such as `0.2.0` may include breaking
 changes; patch releases such as `0.1.1` should be reserved for compatible bug fixes.
 
-## [0.1.0] - 06/11/2026
+## [0.1.0] - 2026-06-12
 
 ### Added
 
