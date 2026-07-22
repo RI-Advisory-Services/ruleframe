@@ -21,6 +21,10 @@ VALID_COMPUTED_TYPES = frozenset(
         "days_since_today",
         "years_since_year",
         "all_blank_or_zero",
+        "scale",
+        "add_constant",
+        "round",
+        "alias",
     }
 )
 
@@ -149,6 +153,21 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return _compute_years_since_year(df, spec)
     if column_type == "all_blank_or_zero":
         return _compute_all_blank_or_zero(df, spec)
+    if column_type == "scale":
+        column = spec.get("column")
+        scalar = spec.get("scalar")
+        return df[column] * scalar
+    if column_type == "add_constant":
+        column = spec.get("column")
+        scalar = spec.get("scalar")
+        return df[column] + scalar
+    if column_type == "round":
+        column = spec.get("column")
+        decimals = spec.get("decimals")
+        return df[column].round(decimals)
+    if column_type == "alias":
+        column = spec.get("column")
+        return df[column].copy()
     raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 
 
@@ -305,6 +324,31 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
         return set()
     if column_type == "all_blank_or_zero":
         return set(computed_source_columns(spec))
+    if column_type in {"scale", "add_constant"}:
+        refs = set()
+        column = spec.get("column")
+        refs.add(str(column))
+        scalar = spec.get("scalar")
+        refs.add(str(scalar))
+        if not column or not scalar:
+            raise ValueError(f"{column_type} requires column and scalar")
+        return refs
+    if column_type == "round":
+        refs = set()
+        column = spec.get("column")
+        refs.add(str(column))
+        decimals = spec.get("decimals")
+        refs.add(str(decimals))
+        if not column or not decimals:
+            raise ValueError(f"{column_type} requires column and decimals")
+        return refs
+    if column_type == "alias":
+        refs = set()
+        column = spec.get("column")
+        refs.add(str(column))
+        if not column:
+            raise ValueError(f"{column_type} requires column")
+        return refs
     return set()
 
 
