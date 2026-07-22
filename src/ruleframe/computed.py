@@ -156,15 +156,21 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if column_type == "scale":
         column = spec.get("column")
         scalar = spec.get("scalar")
+        if not isinstance(scalar, (int, float)):
+            raise ValueError(f"scale requires a numeric scalar, got {scalar!r}")
         return df[column] * scalar
     if column_type == "add_constant":
         column = spec.get("column")
         scalar = spec.get("scalar")
+        if not isinstance(scalar, (int, float)):
+            raise ValueError(f"add_constant requires a numeric scalar, got {scalar!r}")
         return df[column] + scalar
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")
-        return df[column].round(decimals)
+        if not isinstance(decimals, (int)):
+            raise ValueError(f"decimals requires an integer, got {decimals!r}")
+        return df[column].round(int(decimals))
     if column_type == "alias":
         column = spec.get("column")
         return df[column].copy()
