@@ -161,10 +161,10 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return df[column] * scalar
     if column_type == "add_constant":
         column = spec.get("column")
-        scalar = spec.get("scalar")
-        if not isinstance(scalar, (int, float)):
-            raise ValueError(f"add_constant requires a numeric scalar, got {scalar!r}")
-        return df[column] + scalar
+        constant = spec.get("constant")
+        if not isinstance(constant, (int, float)):
+            raise ValueError(f"add_constant requires a numeric constant, got {constant!r}")
+        return df[column] + constant
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")

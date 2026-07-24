@@ -563,6 +563,166 @@ def test_all_blank_or_zero_required_input_columns() -> None:
     spec = {"type": "all_blank_or_zero", "columns": ["kWh", "kW", "Therms"], "id": "r"}
     assert required_input_columns(spec) == {"kWh", "kW", "Therms"}
 
+# ---------------------------------------------------------------------------
+# scale
+# ---------------------------------------------------------------------------
+
+
+def test_scale_by_pos() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    scalar = 10
+    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [100.0, 200.0, 300.0, 1000.0]
+
+
+def test_scale_by_zero() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    scalar = 0
+    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_scale_by_neg() -> None:
+    df = pd.DataFrame({"A": [10.0, -20.0, 30.0, -100.0]})
+    scalar = -2
+    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [-20.0, 40.0, -60.0, 200.0]
+
+
+def test_scale_with_none_values() -> None:
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
+    scalar = 2
+    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [None, 40.0, None, 200.0]
+
+
+def test_scale_by_decimal() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    scalar = 2.005
+    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [20.05, 40.1, 60.15, 200.5]
+
+
+# ---------------------------------------------------------------------------
+# add_constant
+# ---------------------------------------------------------------------------
+
+
+def test_add_constant_by_positive() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    constant = 5.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [15.0, 25.0, 35.0, 105.0]
+
+
+def test_add_constant_by_negative() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    constant = -5.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [5.0, 15.0, 25.0, 95.0]
+
+
+def test_add_constant_by_zero() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 0.0]})
+    constant = 0.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [10.0, 20.0, 30.0, 0.0]
+
+
+def test_add_constant_by_decimal() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    constant = 0.5
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [10.5, 20.5, 30.5, 100.5]
+
+
+def test_add_constant_to_zero() -> None:
+    df = pd.DataFrame({"A": [10.0, 10.0, 10.0, 10.0]})
+    constant = -10.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [0.0, 0.0, 0.0, 0.0]
+
+
+# ---------------------------------------------------------------------------
+# round
+# ---------------------------------------------------------------------------
+
+
+def test_round_zero_decimals() -> None:
+    df = pd.DataFrame({"A": [1.999, 20.001, 51.500, 82.499]})
+    decimals = 0
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2, 20, 52, 82]
+
+
+def test_round_one_decimals() -> None:
+    df = pd.DataFrame({"A": [1.999, 20.001, 51.500, 82.499]})
+    decimals = 1
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2.0, 20.0, 51.5, 82.5]
+
+
+def test_round_two_decimals() -> None:
+    df = pd.DataFrame({"A": [1.999, 20.001, 51.500, 82.499]})
+    decimals = 2
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2.00, 20.00, 51.50, 82.50]  
+
+
+def test_round_tens() -> None:
+    df = pd.DataFrame({"A": [1999.99, 200.01, 515.00, 824.99]})
+    decimals = -1
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2000.0, 200.0, 520.0, 820.0]
+    
+
+def test_round_hundreds() -> None:
+    df = pd.DataFrame({"A": [1999.99, 200.01, 515.00, 894.99]})
+    decimals = -2
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2000.0, 200.0, 500.0, 900.0]
+
+
+def test_round_zero_w_none() -> None:
+    df = pd.DataFrame({"A": [None, None, 51.500, 82.499]})
+    decimals = 0
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [None, None, 52, 82]
+
+
+# ---------------------------------------------------------------------------
+# alias
+# ---------------------------------------------------------------------------
+
+
+def test_alias_full() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    spec = {"type": "alias", "column": "A", "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [10.0, 20.0, 30.0, 100.0]
+
+
+def test_alias_w_none() -> None:
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
+    spec = {"type": "alias", "column": "A", "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [None, 20.0, None, 100.0]
 
 # ===========================================================================
 # Fixture-driven integration tests (YAML rules + CSV data)
