@@ -1,11 +1,10 @@
 import datetime
-from math import nan
 
 import pandas as pd
 import pytest
 
 import ruleframe.computed as computed_module
-from ruleframe import result, validate_dataframe
+from ruleframe import validate_dataframe
 from ruleframe.computed import (
     _compute_days_since_today,
     _compute_years_since_year,
