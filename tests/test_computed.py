@@ -703,7 +703,7 @@ def test_round_zero_w_none() -> None:
     decimals = 0
     spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [None, None, 52, 82]
+    assert result.tolist() == [float("nan"), float("nan"), 52, 82]
 
 
 # ---------------------------------------------------------------------------
@@ -719,10 +719,10 @@ def test_alias_full() -> None:
 
 
 def test_alias_w_none() -> None:
-    df = pd.DataFrame({"A": [nan, 20.0, nan, 100.0]})
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
     spec = {"type": "alias", "column": "A", "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [nan, 20.0, nan, 100.0]
+    assert result.tolist() == [float("nan"), 20.0, float("nan"), 100.0]
 
 # ===========================================================================
 # Fixture-driven integration tests (YAML rules + CSV data)
