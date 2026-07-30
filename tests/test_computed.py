@@ -563,6 +563,7 @@ def test_all_blank_or_zero_required_input_columns() -> None:
     spec = {"type": "all_blank_or_zero", "columns": ["kWh", "kW", "Therms"], "id": "r"}
     assert required_input_columns(spec) == {"kWh", "kW", "Therms"}
 
+
 # ---------------------------------------------------------------------------
 # scale
 # ---------------------------------------------------------------------------
@@ -682,7 +683,7 @@ def test_round_two_decimals() -> None:
     decimals = 2
     spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [2.00, 20.00, 51.50, 82.50]  
+    assert result.tolist() == [2.00, 20.00, 51.50, 82.50]
 
 
 def test_round_tens() -> None:
@@ -691,7 +692,7 @@ def test_round_tens() -> None:
     spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
     result = compute_column(df, spec)
     assert result.tolist() == [2000.0, 200.0, 520.0, 820.0]
-    
+
 
 def test_round_hundreds() -> None:
     df = pd.DataFrame({"A": [1999.99, 200.01, 515.00, 894.99]})
@@ -732,6 +733,7 @@ def test_alias_w_none() -> None:
     assert result.iloc[1] == 20.0
     assert pd.isna(result.iloc[2])
     assert result.iloc[3] == 100.0
+
 
 # ===========================================================================
 # Fixture-driven integration tests (YAML rules + CSV data)
