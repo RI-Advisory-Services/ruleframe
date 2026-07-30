@@ -571,32 +571,32 @@ def test_all_blank_or_zero_required_input_columns() -> None:
 
 def test_scale_by_pos() -> None:
     df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
-    scalar = 10
-    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    scalar = 10.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
     result = compute_column(df, spec)
     assert result.tolist() == [100.0, 200.0, 300.0, 1000.0]
 
 
 def test_scale_by_zero() -> None:
     df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
-    scalar = 0
-    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    scalar = 0.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
     result = compute_column(df, spec)
     assert result.tolist() == [0.0, 0.0, 0.0, 0.0]
 
 
 def test_scale_by_neg() -> None:
     df = pd.DataFrame({"A": [10.0, -20.0, 30.0, -100.0]})
-    scalar = -2
-    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    scalar = -2.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
     result = compute_column(df, spec)
     assert result.tolist() == [-20.0, 40.0, -60.0, 200.0]
 
 
 def test_scale_with_none_values() -> None:
     df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
-    scalar = 2
-    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    scalar = 2.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
     result = compute_column(df, spec)
     assert pd.isna(result.iloc[0])
     assert result.iloc[1] == 40.0
@@ -607,7 +607,7 @@ def test_scale_with_none_values() -> None:
 def test_scale_by_decimal() -> None:
     df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
     scalar = 2.005
-    spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
     result = compute_column(df, spec)
     assert result.tolist() == [20.05, 40.1, 60.15, 200.5]
 
