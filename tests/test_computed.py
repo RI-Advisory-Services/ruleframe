@@ -609,8 +609,10 @@ def test_scale_by_decimal() -> None:
     scalar = 2.005
     spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [20.05, 40.1, 60.15, 200.5]
-
+    assert abs(result.iloc[0] - 20.05) < 1e-9
+    assert abs(result.iloc[1] - 40.1) < 1e-9
+    assert abs(result.iloc[2] - 60.15) < 1e-9
+    assert abs(result.iloc[3] - 200.5) < 1e-9
 
 # ---------------------------------------------------------------------------
 # add_constant
@@ -646,7 +648,10 @@ def test_add_constant_by_decimal() -> None:
     constant = 0.5
     spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [10.5, 20.5, 30.5, 100.5]
+    assert abs(result.iloc[0] - 10.5) < 1e-9
+    assert abs(result.iloc[1] - 20.5) < 1e-9
+    assert abs(result.iloc[2] - 30.5) < 1e-9
+    assert abs(result.iloc[3] - 100.5) < 1e-9
 
 
 def test_add_constant_to_zero() -> None:
