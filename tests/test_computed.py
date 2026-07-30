@@ -1,10 +1,11 @@
 import datetime
+from math import nan
 
 import pandas as pd
 import pytest
 
 import ruleframe.computed as computed_module
-from ruleframe import validate_dataframe
+from ruleframe import result, validate_dataframe
 from ruleframe.computed import (
     _compute_days_since_today,
     _compute_years_since_year,
@@ -597,7 +598,10 @@ def test_scale_with_none_values() -> None:
     scalar = 2
     spec = {"type": "scale", "column": "A", "factor": scalar, "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [None, 40.0, None, 200.0]
+    assert pd.isna(result.iloc[0])
+    assert result.iloc[1] == 40.0
+    assert pd.isna(result.iloc[2])
+    assert result.iloc[3] == 200.0
 
 
 def test_scale_by_decimal() -> None:
@@ -703,7 +707,10 @@ def test_round_zero_w_none() -> None:
     decimals = 0
     spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [float("nan"), float("nan"), 52, 82]
+    assert pd.isna(result.iloc[0])
+    assert pd.isna(result.iloc[1])
+    assert result.iloc[2] == 52
+    assert result.iloc[3] == 82
 
 
 # ---------------------------------------------------------------------------
@@ -722,7 +729,10 @@ def test_alias_w_none() -> None:
     df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
     spec = {"type": "alias", "column": "A", "id": "result"}
     result = compute_column(df, spec)
-    assert result.tolist() == [float("nan"), 20.0, float("nan"), 100.0]
+    assert pd.isna(result.iloc[0])
+    assert result.iloc[1] == 20.0
+    assert pd.isna(result.iloc[2])
+    assert result.iloc[3] == 100.0
 
 # ===========================================================================
 # Fixture-driven integration tests (YAML rules + CSV data)
