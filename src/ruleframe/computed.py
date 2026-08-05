@@ -307,7 +307,7 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
         return set(computed_source_columns(spec))
     return set()
 
-
+#hold
 def collect_computed_column_names(specs: list[dict[str, Any]]) -> set[str]:
     return {computed_column_name(spec) for spec in specs}
 
