@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -156,17 +156,31 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if column_type == "scale":
         column = spec.get("column")
         scalar = spec.get("scalar")
-        return df[column] * scalar
+        if not isinstance(column, str):
+            raise ValueError("scale requires string 'column' key")
+        if scalar is None:
+            raise ValueError("scale requires a numeric 'scalar' key")
+        return cast(pd.Series, df[column] * scalar)
     if column_type == "add_constant":
         column = spec.get("column")
         constant = spec.get("constant")
-        return df[column] + constant
+        if not isinstance(column, str):
+            raise ValueError("add_constant requires string 'column' key")
+        if constant is None:
+            raise ValueError("add_constant requires a numeric 'constant' key")
+        return cast(pd.Series, df[column] + constant)
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")
-        return df[column].round(int(decimals))
+        if not isinstance(column, str):
+            raise ValueError("round requires string 'column' key")
+        if not isinstance(decimals, int):
+            raise ValueError("round requires an integer 'decimals' key")
+        return cast(pd.Series, df[column].round(decimals))
     if column_type == "alias":
         column = spec.get("column")
+        if not isinstance(column, str):
+            raise ValueError("alias requires string 'column' key")
         return df[column].copy()
     raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 

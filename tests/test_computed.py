@@ -635,6 +635,12 @@ def test_scale_by_decimal() -> None:
     assert abs(result.iloc[3] - 200.5) < 1e-9
 
 
+def test_scale_requires_numeric_scalar() -> None:
+    df = pd.DataFrame({"A": [10.0]})
+    with pytest.raises(ValueError, match="numeric"):
+        compute_column(df, {"type": "scale", "column": "A", "scalar": "abc", "id": "r"})
+
+
 # ---------------------------------------------------------------------------
 # add_constant
 # ---------------------------------------------------------------------------
@@ -693,6 +699,12 @@ def test_add_constant_to_zero() -> None:
     assert result.tolist() == [0.0, 0.0, 0.0, 0.0]
 
 
+def test_add_constant_requires_numeric_constant() -> None:
+    df = pd.DataFrame({"A": [10.0]})
+    with pytest.raises(ValueError, match="numeric"):
+        compute_column(df, {"type": "add_constant", "column": "A", "constant": "abc", "id": "r"})
+
+
 # ---------------------------------------------------------------------------
 # round
 # ---------------------------------------------------------------------------
@@ -747,6 +759,12 @@ def test_round_zero_w_none() -> None:
     assert pd.isna(result.iloc[1])
     assert result.iloc[2] == 52
     assert result.iloc[3] == 82
+
+
+def test_round_requires_integer_decimals() -> None:
+    df = pd.DataFrame({"A": [10.0]})
+    with pytest.raises(ValueError, match="integer"):
+        compute_column(df, {"type": "round", "column": "A", "decimals": 2.5, "id": "r"})
 
 
 # ---------------------------------------------------------------------------
