@@ -349,6 +349,44 @@ def test_collect_computed_source_columns_handles_mixed_types() -> None:
     assert collect_computed_source_columns(specs) == {"A", "B", "Group", "Amount", "Type"}
 
 
+def test_scale_required_input_columns() -> None:
+    spec = {"type": "scale", "column": "A", "scalar": 10.0, "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_add_constant_required_input_columns() -> None:
+    spec = {"type": "add_constant", "column": "A", "constant": 5.0, "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_round_required_input_columns() -> None:
+    spec = {"type": "round", "column": "A", "decimals": 2, "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_alias_required_input_columns() -> None:
+    spec = {"type": "alias", "column": "A", "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_scale_requires_numeric_scalar() -> None:
+    df = pd.DataFrame({"A": [10.0]})
+    with pytest.raises(ValueError, match="numeric scalar"):
+        compute_column(df, {"type": "scale", "column": "A", "scalar": "abc", "id": "r"})
+
+
+def test_add_constant_requires_numeric_constant() -> None:
+    df = pd.DataFrame({"A": [10.0]})
+    with pytest.raises(ValueError, match="numeric constant"):
+        compute_column(df, {"type": "add_constant", "column": "A", "constant": "abc", "id": "r"})
+
+
+def test_round_requires_integer_decimals() -> None:
+    df = pd.DataFrame({"A": [10.0]})
+    with pytest.raises(ValueError, match="integer"):
+        compute_column(df, {"type": "round", "column": "A", "decimals": 2.5, "id": "r"})
+
+                    
 # ---------------------------------------------------------------------------
 # date_diff
 # ---------------------------------------------------------------------------
@@ -654,6 +692,16 @@ def test_add_constant_by_decimal() -> None:
     assert abs(result.iloc[2] - 30.5) < 1e-9
     assert abs(result.iloc[3] - 100.5) < 1e-9
 
+
+def test_add_constant_with_none_values() -> None:
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
+    spec = {"type": "add_constant", "column": "A", "constant": 5.0, "id": "result"}
+    result = compute_column(df, spec)
+    assert pd.isna(result.iloc[0])
+    assert result.iloc[1] == 25.0
+    assert pd.isna(result.iloc[2])
+    assert result.iloc[3] == 105.0
+    
 
 def test_add_constant_to_zero() -> None:
     df = pd.DataFrame({"A": [10.0, 10.0, 10.0, 10.0]})
