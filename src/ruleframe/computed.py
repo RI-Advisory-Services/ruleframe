@@ -156,20 +156,14 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if column_type == "scale":
         column = spec.get("column")
         scalar = spec.get("scalar")
-        if not isinstance(scalar, (int, float)):
-            raise ValueError(f"scale requires a numeric scalar, got {scalar!r}")
         return df[column] * scalar
     if column_type == "add_constant":
         column = spec.get("column")
         constant = spec.get("constant")
-        if not isinstance(constant, (int, float)):
-            raise ValueError(f"add_constant requires a numeric constant, got {constant!r}")
         return df[column] + constant
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")
-        if not isinstance(decimals, (int)):
-            raise ValueError(f"decimals requires an integer, got {decimals!r}")
         return df[column].round(int(decimals))
     if column_type == "alias":
         column = spec.get("column")
@@ -330,30 +324,10 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
         return set()
     if column_type == "all_blank_or_zero":
         return set(computed_source_columns(spec))
-    if column_type in {"scale", "add_constant"}:
+    if column_type in {"scale", "add_constant", "round", "alias"}:
         refs = set()
         column = spec.get("column")
         refs.add(str(column))
-        scalar = spec.get("scalar")
-        refs.add(str(scalar))
-        if not column or not scalar:
-            raise ValueError(f"{column_type} requires column and scalar")
-        return refs
-    if column_type == "round":
-        refs = set()
-        column = spec.get("column")
-        refs.add(str(column))
-        decimals = spec.get("decimals")
-        refs.add(str(decimals))
-        if not column or not decimals:
-            raise ValueError(f"{column_type} requires column and decimals")
-        return refs
-    if column_type == "alias":
-        refs = set()
-        column = spec.get("column")
-        refs.add(str(column))
-        if not column:
-            raise ValueError(f"{column_type} requires column")
         return refs
     return set()
 
