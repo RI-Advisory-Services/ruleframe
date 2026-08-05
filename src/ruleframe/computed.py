@@ -160,7 +160,7 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
             raise ValueError("scale requires string 'column' key")
         if scalar is None:
             raise ValueError("scale requires a numeric 'scalar' key")
-        return cast(pd.Series, df[column] * scalar)
+        return pd.Series(df[column] * scalar, index=df.index)
     if column_type == "add_constant":
         column = spec.get("column")
         constant = spec.get("constant")
@@ -168,7 +168,7 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
             raise ValueError("add_constant requires string 'column' key")
         if constant is None:
             raise ValueError("add_constant requires a numeric 'constant' key")
-        return cast(pd.Series, df[column] + constant)
+        return pd.Series(df[column] + constant, index=df.index)
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")
@@ -176,7 +176,7 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
             raise ValueError("round requires string 'column' key")
         if not isinstance(decimals, int):
             raise ValueError("round requires an integer 'decimals' key")
-        return cast(pd.Series, df[column].round(decimals))
+        return pd.Series(df[column].round(decimals), index=df.index)
     if column_type == "alias":
         column = spec.get("column")
         if not isinstance(column, str):
