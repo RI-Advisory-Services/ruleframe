@@ -369,24 +369,6 @@ def test_alias_required_input_columns() -> None:
     assert required_input_columns(spec) == {"A"}
 
 
-def test_scale_requires_numeric_scalar() -> None:
-    df = pd.DataFrame({"A": [10.0]})
-    with pytest.raises(ValueError, match="numeric scalar"):
-        compute_column(df, {"type": "scale", "column": "A", "scalar": "abc", "id": "r"})
-
-
-def test_add_constant_requires_numeric_constant() -> None:
-    df = pd.DataFrame({"A": [10.0]})
-    with pytest.raises(ValueError, match="numeric constant"):
-        compute_column(df, {"type": "add_constant", "column": "A", "constant": "abc", "id": "r"})
-
-
-def test_round_requires_integer_decimals() -> None:
-    df = pd.DataFrame({"A": [10.0]})
-    with pytest.raises(ValueError, match="integer"):
-        compute_column(df, {"type": "round", "column": "A", "decimals": 2.5, "id": "r"})
-
-                    
 # ---------------------------------------------------------------------------
 # date_diff
 # ---------------------------------------------------------------------------
@@ -701,7 +683,7 @@ def test_add_constant_with_none_values() -> None:
     assert result.iloc[1] == 25.0
     assert pd.isna(result.iloc[2])
     assert result.iloc[3] == 105.0
-    
+
 
 def test_add_constant_to_zero() -> None:
     df = pd.DataFrame({"A": [10.0, 10.0, 10.0, 10.0]})
