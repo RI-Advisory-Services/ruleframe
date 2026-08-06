@@ -83,3 +83,13 @@ def savings_flag_df() -> pd.DataFrame:
 @pytest.fixture
 def savings_flag_bundle() -> RuleBundle:
     return RuleBundle.from_yaml(RULES / "savings_flag_rules.yaml")
+
+
+@pytest.fixture
+def single_column_op_df() -> pd.DataFrame:
+    return pd.read_csv(DATA / "single_column_op_rows.csv")
+
+
+@pytest.fixture
+def single_column_op_bundle() -> RuleBundle:
+    return RuleBundle.from_yaml(RULES / "single_column_op_rules.yaml")

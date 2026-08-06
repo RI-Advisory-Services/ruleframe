@@ -1,0 +1,163 @@
+version: 1
+
+computed_columns:
+  # scale: 
+  - id: double_input_btu
+    name: Double Input BTU
+    type: scale
+    columns:
+      - Input BTU
+    scalar: 
+      - 2
+
+  - id: half_input_btu
+    name: Half Input BTU
+    type: scale
+    columns:
+      - Input BTU
+    scalar: 
+      - 0.5
+
+  - id: zero_input_btu
+    name: Zero Input BTU
+    type: scale
+    columns:
+      - Input BTU
+    scalar: 
+      - 0
+
+  # add constant: 
+  - id: add_ten_input_btu
+    name: Add Ten Input BTU
+    type: add_constant
+    columns:
+      - Input BTU
+    constant: 
+      - 10
+
+  - id: subtract_ten_input_btu
+    name: Subtract Ten Input BTU
+    type: add_constant
+    columns:
+      - Input BTU
+    constant: 
+      - -10
+
+  - id: add_zero_input_btu
+    name: Add Zero Input BTU
+    type: add_constant
+    columns:
+      - Input BTU
+    constant: 
+      - 0
+
+  # round:
+  - id: round_tens_input_btu
+    name: Round Tens Input BTU
+    type: round
+    columns:
+      - Input BTU
+    decimals: 
+      - -1
+
+  - id: round_tenths_input_btu
+    name: Round Tenths Input BTU
+    type: round
+    columns:
+      - Input BTU
+    decimals: 
+      - 1
+
+  # alias:
+  - id: copy_input_btu
+    name: Copy Input BTU
+    type: alias
+    columns:
+      - Input BTU
+
+  - id: copy_kWh_savings
+    name: Copy kWh Savings with missing values
+    type: alias
+    columns:
+      - kWh Savings
+
+rules:
+  - id: double_input_btu_checker
+    name: Double Input BTU Checker
+    severity: error
+    fail_when:
+      column: Double Input BTU
+      not_equals_column: Double Input BTU Checker
+    message: Double Input BTU does not match Double Input BTU Checker.
+
+  - id: half_input_btu_checker
+    name: Half Input BTU Checker
+    severity: error
+    fail_when:
+      column: Half Input BTU
+      not_equals_column: Half Input BTU Checker
+    message: Half Input BTU does not match Half Input BTU Checker.
+
+  - id: zero_input_btu_checker
+    name: Zero Input BTU Checker
+    severity: error
+    fail_when:
+      column: Zero Input BTU
+      not_equals_column: Zero Input BTU Checker
+    message: Zero Input BTU does not match Zero Input BTU Checker.
+
+  - id: add_ten_input_btu_checker
+    name: Add Ten Input BTU Checker
+    severity: error
+    fail_when:
+      column: Add Ten Input BTU
+      not_equals_column: Add Ten Input BTU Checker
+    message: Add Ten Input BTU does not match Add Ten Input BTU Checker.
+
+  - id: subtract_ten_input_btu_checker
+    name: Subtract Ten Input BTU Checker
+    severity: error
+    fail_when:
+      column: Subtract Ten Input BTU
+      not_equals_column: Subtract Ten Input BTU Checker
+    message: Subtract Ten Input BTU does not match Subtract Ten Input BTU Checker.
+
+  - id: add_zero_input_btu_checker
+    name: Add Zero Input BTU Checker
+    severity: error
+    fail_when:
+      column: Add Zero Input BTU
+      not_equals_column: Add Zero Input BTU Checker
+    message: Add Zero Input BTU does not match Add Zero Input BTU Checker.
+
+  - id: round_ten_input_btu_checker
+    name: Round Tens Input BTU Checker
+    severity: error
+    fail_when:
+      column: Round Tens Input BTU
+      not_equals_column: Round Tens Input BTU Checker
+    message: Round Tens Input BTU does not match Round Tens Input BTU Checker.
+
+  - id: round_tenths_input_btu_checker
+    name: Round Tenths Input BTU Checker
+    severity: error
+    fail_when:
+      column: Round Tenths Input BTU
+      not_equals_column: Round Tenths Input BTU Checker
+    message: Round Tenths Input BTU does not match Round Tenths Input BTU Checker.
+
+  - id: alias_input_btu_checker
+    name: Copy Input BTU Checker
+    severity: error
+    fail_when:
+      column: Copy Input BTU
+      not_equals_column: Copy Input BTU Checker
+    message: Copy Input BTU does not match Copy Input BTU Checker.
+
+  - id: copy_kWh_savings_checker
+    name: Copy kWh Savings with missing values
+    severity: error
+    fail_when:
+      column: Copy kWh Savings with missing values
+      not_equals_column: Copy kWh Savings with missing values Checker
+    message: Copy kWh Savings with missing values does not match Copy kWh Savings with missing values Checker.
