@@ -339,10 +339,9 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
     if column_type == "all_blank_or_zero":
         return set(computed_source_columns(spec))
     if column_type in {"scale", "add_constant", "round", "alias"}:
-        refs = set()
-        column = spec.get("column")
-        refs.add(str(column))
-        return refs
+        if col := spec.get("column"):
+            return {str(col)}
+        return set()
     return set()
 
 

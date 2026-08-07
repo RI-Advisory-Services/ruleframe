@@ -1015,7 +1015,7 @@ def test_all_blank_or_zero_triggers_findings_on_correct_rows(
 # ---------------------------------------------------------------------------
 
 
-def test_single_column_op_scale(single_column_op_df, single_column_op_bundle) -> None:
+def test_single_column_ops_integration(single_column_op_df, single_column_op_bundle) -> None:
     result = validate_dataframe(single_column_op_df, single_column_op_bundle)
     annotated = result.to_annotated_dataframe()
     # R1: 500.01, R2: 400.20, R3: 0.99, R4: 200.55
@@ -1034,3 +1034,8 @@ def test_single_column_op_scale(single_column_op_df, single_column_op_bundle) ->
         annotated["Round Tenths Input BTU"] == annotated["Round Tenths Input BTU Checker"]
     ).all()
     assert (annotated["Copy Input BTU"] == annotated["Copy Input BTU Checker"]).all()
+    # alias copies verbatim — R4 kWh Savings is a whitespace string, preserved as-is
+    alias_col = annotated["Copy kWh Savings with missing values"]
+    assert alias_col.equals(single_column_op_df["kWh Savings"])
+    copy_kwh_findings = [f for f in result.findings if f.rule_id == "copy_kWh_savings_checker"]
+    assert copy_kwh_findings == []
