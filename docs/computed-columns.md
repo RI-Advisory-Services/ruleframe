@@ -53,6 +53,10 @@ Computed columns are generated on a working copy. The original input DataFrame i
 | `date_diff` | `start_column`, `end_column` | Whole days from start date to end date. |
 | `days_since_today` | `column` | Whole days from the source date to the current date. |
 | `years_since_year` | `column` | Current year minus an integer year column. |
+| `scale` | `column`, `scalar` | Multiply a single column by a numeric constant. |
+| `add_constant` | `column`, `constant` | Add a numeric constant to a single column. Use a negative constant to subtract. |
+| `round` | `column`, `decimals` | Round a column to `decimals` decimal places. Use negative `decimals` to round to tens, hundreds, etc. |
+| `alias` | `column` | Copy a column under a new name. Null values are preserved. |
 
 ## Row-Level Arithmetic
 
@@ -202,6 +206,42 @@ computed_columns:
 
 Order matters. A computed column that depends on another generated column must be declared after
 its dependency.
+
+## Single-Column Operations
+
+```yaml
+computed_columns:
+  - id: adjusted_kwh
+    name: Adjusted kWh
+    type: scale
+    column: Gross kWh
+    scalar: 0.85
+
+  - id: adjusted_incentive
+    name: Adjusted Incentive
+    type: add_constant
+    column: Base Incentive
+    constant: 50
+
+  - id: rounded_savings
+    name: Rounded Savings
+    type: round
+    column: Adjusted kWh
+    decimals: 2
+
+  - id: reported_kwh_copy
+    name: Reported kWh
+    type: alias
+    column: Gross kWh
+```
+
+`scale` multiplies every value in a column by a constant. `add_constant` adds a constant (use a
+negative value to subtract). Both propagate blank values as blank.
+
+`round` rounds to the given number of decimal places. Pass a negative `decimals` value to round
+to the nearest ten, hundred, etc. (`decimals: -1` rounds to the nearest 10).
+
+`alias` copies a column under a new name without transforming any values.
 
 ## Validation Rules
 

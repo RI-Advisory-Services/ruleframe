@@ -21,6 +21,10 @@ VALID_COMPUTED_TYPES = frozenset(
         "days_since_today",
         "years_since_year",
         "all_blank_or_zero",
+        "scale",
+        "add_constant",
+        "round",
+        "alias",
     }
 )
 
@@ -149,6 +153,35 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return _compute_years_since_year(df, spec)
     if column_type == "all_blank_or_zero":
         return _compute_all_blank_or_zero(df, spec)
+    if column_type == "scale":
+        column = spec.get("column")
+        scalar = spec.get("scalar")
+        if not isinstance(column, str):
+            raise ValueError("scale requires string 'column' key")
+        if scalar is None:
+            raise ValueError("scale requires a numeric 'scalar' key")
+        return pd.Series(df[column] * scalar, index=df.index)
+    if column_type == "add_constant":
+        column = spec.get("column")
+        constant = spec.get("constant")
+        if not isinstance(column, str):
+            raise ValueError("add_constant requires string 'column' key")
+        if constant is None:
+            raise ValueError("add_constant requires a numeric 'constant' key")
+        return pd.Series(df[column] + constant, index=df.index)
+    if column_type == "round":
+        column = spec.get("column")
+        decimals = spec.get("decimals")
+        if not isinstance(column, str):
+            raise ValueError("round requires string 'column' key")
+        if not isinstance(decimals, int):
+            raise ValueError("round requires an integer 'decimals' key")
+        return pd.Series(df[column].round(decimals), index=df.index)
+    if column_type == "alias":
+        column = spec.get("column")
+        if not isinstance(column, str):
+            raise ValueError("alias requires string 'column' key")
+        return df[column].copy()
     raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 
 
@@ -305,6 +338,10 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
         return set()
     if column_type == "all_blank_or_zero":
         return set(computed_source_columns(spec))
+    if column_type in {"scale", "add_constant", "round", "alias"}:
+        if col := spec.get("column"):
+            return {str(col)}
+        return set()
     return set()
 
 

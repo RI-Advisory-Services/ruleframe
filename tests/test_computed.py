@@ -349,6 +349,26 @@ def test_collect_computed_source_columns_handles_mixed_types() -> None:
     assert collect_computed_source_columns(specs) == {"A", "B", "Group", "Amount", "Type"}
 
 
+def test_scale_required_input_columns() -> None:
+    spec = {"type": "scale", "column": "A", "scalar": 10.0, "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_add_constant_required_input_columns() -> None:
+    spec = {"type": "add_constant", "column": "A", "constant": 5.0, "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_round_required_input_columns() -> None:
+    spec = {"type": "round", "column": "A", "decimals": 2, "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
+def test_alias_required_input_columns() -> None:
+    spec = {"type": "alias", "column": "A", "id": "r"}
+    assert required_input_columns(spec) == {"A"}
+
+
 # ---------------------------------------------------------------------------
 # date_diff
 # ---------------------------------------------------------------------------
@@ -562,6 +582,193 @@ def test_all_blank_or_zero_returns_0_when_any_nonzero() -> None:
 def test_all_blank_or_zero_required_input_columns() -> None:
     spec = {"type": "all_blank_or_zero", "columns": ["kWh", "kW", "Therms"], "id": "r"}
     assert required_input_columns(spec) == {"kWh", "kW", "Therms"}
+
+
+# ---------------------------------------------------------------------------
+# scale
+# ---------------------------------------------------------------------------
+
+
+def test_scale_by_pos() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    scalar = 10.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [100.0, 200.0, 300.0, 1000.0]
+
+
+def test_scale_by_zero() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    scalar = 0.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_scale_by_neg() -> None:
+    df = pd.DataFrame({"A": [10.0, -20.0, 30.0, -100.0]})
+    scalar = -2.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [-20.0, 40.0, -60.0, 200.0]
+
+
+def test_scale_with_none_values() -> None:
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
+    scalar = 2.0
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert pd.isna(result.iloc[0])
+    assert result.iloc[1] == 40.0
+    assert pd.isna(result.iloc[2])
+    assert result.iloc[3] == 200.0
+
+
+def test_scale_by_decimal() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    scalar = 2.005
+    spec = {"type": "scale", "column": "A", "scalar": scalar, "id": "result"}
+    result = compute_column(df, spec)
+    assert abs(result.iloc[0] - 20.05) < 1e-9
+    assert abs(result.iloc[1] - 40.1) < 1e-9
+    assert abs(result.iloc[2] - 60.15) < 1e-9
+    assert abs(result.iloc[3] - 200.5) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# add_constant
+# ---------------------------------------------------------------------------
+
+
+def test_add_constant_by_positive() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    constant = 5.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [15.0, 25.0, 35.0, 105.0]
+
+
+def test_add_constant_by_negative() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    constant = -5.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [5.0, 15.0, 25.0, 95.0]
+
+
+def test_add_constant_by_zero() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 0.0]})
+    constant = 0.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [10.0, 20.0, 30.0, 0.0]
+
+
+def test_add_constant_by_decimal() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    constant = 0.5
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert abs(result.iloc[0] - 10.5) < 1e-9
+    assert abs(result.iloc[1] - 20.5) < 1e-9
+    assert abs(result.iloc[2] - 30.5) < 1e-9
+    assert abs(result.iloc[3] - 100.5) < 1e-9
+
+
+def test_add_constant_with_none_values() -> None:
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
+    spec = {"type": "add_constant", "column": "A", "constant": 5.0, "id": "result"}
+    result = compute_column(df, spec)
+    assert pd.isna(result.iloc[0])
+    assert result.iloc[1] == 25.0
+    assert pd.isna(result.iloc[2])
+    assert result.iloc[3] == 105.0
+
+
+def test_add_constant_to_zero() -> None:
+    df = pd.DataFrame({"A": [10.0, 10.0, 10.0, 10.0]})
+    constant = -10.0
+    spec = {"type": "add_constant", "column": "A", "constant": constant, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [0.0, 0.0, 0.0, 0.0]
+
+
+# ---------------------------------------------------------------------------
+# round
+# ---------------------------------------------------------------------------
+
+
+def test_round_zero_decimals() -> None:
+    df = pd.DataFrame({"A": [1.999, 20.001, 51.500, 82.499]})
+    decimals = 0
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2, 20, 52, 82]
+
+
+def test_round_one_decimals() -> None:
+    df = pd.DataFrame({"A": [1.999, 20.001, 51.500, 82.499]})
+    decimals = 1
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2.0, 20.0, 51.5, 82.5]
+
+
+def test_round_two_decimals() -> None:
+    df = pd.DataFrame({"A": [1.999, 20.001, 51.500, 82.499]})
+    decimals = 2
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2.00, 20.00, 51.50, 82.50]
+
+
+def test_round_tens() -> None:
+    df = pd.DataFrame({"A": [1999.99, 200.01, 515.00, 824.99]})
+    decimals = -1
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2000.0, 200.0, 520.0, 820.0]
+
+
+def test_round_hundreds() -> None:
+    df = pd.DataFrame({"A": [1999.99, 200.01, 515.00, 894.99]})
+    decimals = -2
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [2000.0, 200.0, 500.0, 900.0]
+
+
+def test_round_zero_w_none() -> None:
+    df = pd.DataFrame({"A": [None, None, 51.500, 82.499]})
+    decimals = 0
+    spec = {"type": "round", "column": "A", "decimals": decimals, "id": "result"}
+    result = compute_column(df, spec)
+    assert pd.isna(result.iloc[0])
+    assert pd.isna(result.iloc[1])
+    assert result.iloc[2] == 52
+    assert result.iloc[3] == 82
+
+
+# ---------------------------------------------------------------------------
+# alias
+# ---------------------------------------------------------------------------
+
+
+def test_alias_full() -> None:
+    df = pd.DataFrame({"A": [10.0, 20.0, 30.0, 100.0]})
+    spec = {"type": "alias", "column": "A", "id": "result"}
+    result = compute_column(df, spec)
+    assert result.tolist() == [10.0, 20.0, 30.0, 100.0]
+
+
+def test_alias_w_none() -> None:
+    df = pd.DataFrame({"A": [None, 20.0, None, 100.0]})
+    spec = {"type": "alias", "column": "A", "id": "result"}
+    result = compute_column(df, spec)
+    assert pd.isna(result.iloc[0])
+    assert result.iloc[1] == 20.0
+    assert pd.isna(result.iloc[2])
+    assert result.iloc[3] == 100.0
 
 
 # ===========================================================================
@@ -801,3 +1008,34 @@ def test_all_blank_or_zero_triggers_findings_on_correct_rows(
     # Rows 0,1,2,5 (R1,R2,R3,R6) should produce findings
     assert len(findings) == 4
     assert {f.row_index for f in findings} == {0, 1, 2, 5}
+
+
+# ---------------------------------------------------------------------------
+# single column operations (single_column_op_rules.yaml)
+# ---------------------------------------------------------------------------
+
+
+def test_single_column_ops_integration(single_column_op_df, single_column_op_bundle) -> None:
+    result = validate_dataframe(single_column_op_df, single_column_op_bundle)
+    annotated = result.to_annotated_dataframe()
+    # R1: 500.01, R2: 400.20, R3: 0.99, R4: 200.55
+    col = "Double Input BTU"
+    assert annotated[col].tolist() == [1000.02, 800.40, 1.98, 401.10]
+    assert (annotated["Double Input BTU"] == annotated["Double Input BTU Checker"]).all()
+    assert (annotated["Half Input BTU"] == annotated["Half Input BTU Checker"]).all()
+    assert (annotated["Zero Input BTU"] == annotated["Zero Input BTU Checker"]).all()
+    assert (annotated["Add Ten Input BTU"] == annotated["Add Ten Input BTU Checker"]).all()
+    assert (
+        annotated["Subtract Ten Input BTU"] == annotated["Subtract Ten Input BTU Checker"]
+    ).all()
+    assert (annotated["Add Zero Input BTU"] == annotated["Add Zero Input BTU Checker"]).all()
+    assert (annotated["Round Tens Input BTU"] == annotated["Round Tens Input BTU Checker"]).all()
+    assert (
+        annotated["Round Tenths Input BTU"] == annotated["Round Tenths Input BTU Checker"]
+    ).all()
+    assert (annotated["Copy Input BTU"] == annotated["Copy Input BTU Checker"]).all()
+    # alias copies verbatim — R4 kWh Savings is a whitespace string, preserved as-is
+    alias_col = annotated["Copy kWh Savings with missing values"]
+    assert alias_col.equals(single_column_op_df["kWh Savings"])
+    copy_kwh_findings = [f for f in result.findings if f.rule_id == "copy_kWh_savings_checker"]
+    assert copy_kwh_findings == []
