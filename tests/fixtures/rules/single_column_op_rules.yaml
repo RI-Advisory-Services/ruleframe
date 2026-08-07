@@ -5,81 +5,63 @@ computed_columns:
   - id: double_input_btu
     name: Double Input BTU
     type: scale
-    columns:
-      - Input BTU
-    scalar: 
-      - 2
+    column: Input BTU
+    scalar: 2
 
   - id: half_input_btu
     name: Half Input BTU
     type: scale
-    columns:
-      - Input BTU
-    scalar: 
-      - 0.5
+    column: Input BTU
+    scalar: 0.5
 
   - id: zero_input_btu
     name: Zero Input BTU
     type: scale
-    columns:
-      - Input BTU
-    scalar: 
-      - 0
+    column: Input BTU
+    scalar: 0
 
   # add constant: 
   - id: add_ten_input_btu
     name: Add Ten Input BTU
     type: add_constant
-    columns:
-      - Input BTU
-    constant: 
-      - 10
+    column: Input BTU
+    constant: 10
 
   - id: subtract_ten_input_btu
     name: Subtract Ten Input BTU
     type: add_constant
-    columns:
-      - Input BTU
-    constant: 
-      - -10
+    column: Input BTU
+    constant: -10
 
   - id: add_zero_input_btu
     name: Add Zero Input BTU
     type: add_constant
-    columns:
-      - Input BTU
-    constant: 
-      - 0
+    column: Input BTU
+    constant: 0
 
   # round:
   - id: round_tens_input_btu
     name: Round Tens Input BTU
     type: round
-    columns:
-      - Input BTU
-    decimals: 
-      - -1
+    column: Input BTU
+    decimals: -1
 
   - id: round_tenths_input_btu
     name: Round Tenths Input BTU
     type: round
-    columns:
-      - Input BTU
-    decimals: 
-      - 1
+    column: Input BTU
+    decimals: 1
 
   # alias:
   - id: copy_input_btu
     name: Copy Input BTU
     type: alias
-    columns:
-      - Input BTU
+    column: Input BTU
 
   - id: copy_kWh_savings
     name: Copy kWh Savings with missing values
     type: alias
-    columns:
-      - kWh Savings
+    column: kWh Savings
 
 rules:
   - id: double_input_btu_checker

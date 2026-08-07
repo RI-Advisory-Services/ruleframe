@@ -1008,3 +1008,25 @@ def test_all_blank_or_zero_triggers_findings_on_correct_rows(
     # Rows 0,1,2,5 (R1,R2,R3,R6) should produce findings
     assert len(findings) == 4
     assert {f.row_index for f in findings} == {0, 1, 2, 5}
+
+
+# ---------------------------------------------------------------------------
+# single column operations (single_column_op_rules.yaml)
+# ---------------------------------------------------------------------------
+
+def test_single_column_op_scale(single_column_op_df, single_column_op_bundle) -> None:
+    result = validate_dataframe(single_column_op_df, single_column_op_bundle)
+    annotated = result.to_annotated_dataframe()
+    # R1: 500.01, R2: 400.20, R3: 0.99, R4: 200.55
+    col = "Double Input BTU"
+    assert annotated[col].tolist() == [1000.02, 800.40, 1.98, 401.10]
+    assert (annotated["Double Input BTU"] == annotated["Double Input BTU Checker"]).all()
+    assert (annotated["Half Input BTU"] == annotated["Half Input BTU Checker"]).all()
+    assert (annotated["Zero Input BTU"] == annotated["Zero Input BTU Checker"]).all()
+    assert (annotated["Add Ten Input BTU"] == annotated["Add Ten Input BTU Checker"]).all()
+    assert (annotated["Subtract Ten Input BTU"] == annotated["Subtract Ten Input BTU Checker"]).all()
+    assert (annotated["Add Zero Input BTU"] == annotated["Add Zero Input BTU Checker"]).all()
+    assert (annotated["Round Tens Input BTU"] == annotated["Round Tens Input BTU Checker"]).all()
+    assert (annotated["Round Tenths Input BTU"] == annotated["Round Tenths Input BTU Checker"]).all()
+    assert (annotated["Copy Input BTU"] == annotated["Copy Input BTU Checker"]).all()
+

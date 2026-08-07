@@ -1,4 +1,4 @@
-Row ID,Input BTU,kWh Savings, Double Input BTU Checker, Half Input BTU Checker, Zero Input BTU Checker, Add Ten Input BTU Checker, Subtract Ten Input BTU Checker, Add Zero Input BTU Checker, Round Tens Input BTU Checker, Round Tenths Input BTU, Copy Input BTU Checker,  Copy kWh Savings with missing values Checker
+Row ID,Input BTU,kWh Savings,Double Input BTU Checker,Half Input BTU Checker,Zero Input BTU Checker,Add Ten Input BTU Checker,Subtract Ten Input BTU Checker,Add Zero Input BTU Checker,Round Tens Input BTU Checker,Round Tenths Input BTU Checker,Copy Input BTU Checker,Copy kWh Savings with missing values Checker
 R1,500.01,10, 1000.02, 250.005, 0, 510.01, 490.01,500.01, 500, 500.0, 500.01, 10
 R2,400.20,8, 800.4, 200.1, 0, 410.20, 390.2,400.20, 400, 400.2,400.20, 8
 R3,0.99,6, 1.98, 0.495, 0, 10.99, -9.01, 0.99, 0, 1.0, 0.99, 6
