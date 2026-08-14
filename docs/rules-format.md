@@ -103,23 +103,39 @@ Each atomic condition must contain exactly one operator besides `column`.
 
 Use `all`, `any`, and `not` to combine conditions.
 
+RuleFrame evaluates each child condition independently — every predicate inside a boolean node
+produces its own true or false result. The boolean node then combines those individual results
+into one final decision for the row.
+
+**`all`** fires when every child condition is true. Think of it as "all of these must be true at
+the same time." If any one child is false, the whole `all` block is false and no finding is
+recorded.
+
 ```yaml
 fail_when:
   all:
     - column: Status
-      equals: "Active"
+      equals: "Active"        # true or false on its own
     - column: Amount
-      greater_than: 1000
+      greater_than: 1000      # true or false on its own
+# finding recorded only when BOTH are true
 ```
+
+**`any`** fires when at least one child condition is true. If every child is false, the `any`
+block is false and no finding is recorded.
 
 ```yaml
 fail_when:
   any:
     - column: kWh Savings
-      is_blank: true
+      is_blank: true          # true or false on its own
     - column: Therm Savings
-      is_blank: true
+      is_blank: true          # true or false on its own
+# finding recorded when EITHER is true
 ```
+
+**`not`** wraps exactly one condition and inverts its result. The example below fires when
+`Status` is anything other than `"Closed"`.
 
 ```yaml
 fail_when:
@@ -128,22 +144,21 @@ fail_when:
     equals: "Closed"
 ```
 
-`not` applies to exactly one child condition. The example above fires when `Status` is anything
-other than `"Closed"`.
-
-Boolean nodes can be nested:
+Boolean nodes can be nested. Inner nodes are evaluated first, producing a single true or false
+result that the outer node then treats as one of its children.
 
 ```yaml
 fail_when:
   all:
-    - any:
+    - any:                          # inner: fires if status is Active OR Pending
         - column: Status
           equals: "Active"
         - column: Status
           equals: "Pending"
-    - not:
+    - not:                          # inner: fires if Priority Review is NOT Yes
         column: Priority Review
         equals: "Yes"
+# outer all: finding recorded only when BOTH inner results are true
 ```
 
 See [Predicates](predicates.md) for the full list of operators that can be used in atomic
