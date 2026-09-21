@@ -50,7 +50,7 @@ class CoercionEvent:
     """Record of a coercion applied to a single column."""
 
     column: str
-    target_type: str  # "numeric" or "date"
+    target_type: str  # "integer", "numeric", or "date"
     input_dtype: str  # pandas dtype string before coercion (e.g. "object", "int64")
     total_non_null: int
     coerced_successfully: int
@@ -63,13 +63,15 @@ class CoercionEvent:
 
 
 def _infer_type_from_literal(value: Any) -> str | None:
-    """Return 'numeric', 'string', 'boolean', or None based on a YAML-parsed literal value.
-
+    """Return 'numeric', 'string', 'boolean', 'integer' or 
+    None based on a YAML-parsed literal value.
     bool must be checked before int because bool is a subclass of int in Python.
     """
     if isinstance(value, bool):
         return "boolean"
-    if isinstance(value, (int, float)):
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
         return "numeric"
     if isinstance(value, str):
         return "string"
@@ -84,14 +86,27 @@ def _infer_type_from_in_list(items: list) -> str | None:
     if not items:
         return None
     has_bool = any(isinstance(v, bool) for v in items)
-    has_numeric = any(isinstance(v, (int, float)) and not isinstance(v, bool) for v in items)
+    has_integer = any(isinstance(v, int) and not isinstance(v, bool) for v in items)
+    has_numeric = any(isinstance(v, float) for v in items)
     has_string = any(isinstance(v, str) for v in items)
-    if has_bool and (has_numeric or has_string):
-        return "mixed"  # caller will raise
-    if has_numeric and has_string:
-        return "mixed"  # caller will raise
+
+    type_groups = sum(
+        [
+            has_bool,
+            has_integer or has_numeric,
+            has_string,
+        ]
+    )
+
+    if type_groups > 1:
+        return "mixed"
+
     if has_bool:
         return "boolean"
+    if has_integer and has_numeric:
+        return "numeric"
+    if has_integer:
+        return "integer"
     if has_numeric:
         return "numeric"
     if has_string:
@@ -129,15 +144,16 @@ def _infer_types_from_condition(
         if op_key == "column":
             continue
 
-        # Predicates that always imply numeric
+        # Comparison predicates accept both integers and fractional numbers.
         if op_key in NUMERIC_PREDICATES:
             signals.setdefault(col, []).append(("numeric", f"{op_key} in rule {rule_id!r}"))
-            # Column predicates also imply the RHS column is numeric
+
             if op_key.endswith("_column"):
                 rhs = str(value)
                 signals.setdefault(rhs, []).append(
                     ("numeric", f"{op_key} (right-hand) in rule {rule_id!r}")
                 )
+
             continue
 
         # equals / not_equals — infer from literal type
@@ -187,6 +203,48 @@ def _infer_types_from_computed(
                 signals.setdefault(str(c), []).append(
                     ("numeric", f"computed column {name!r} (years_since_year)")
                 )
+        elif col_type in {"scale", "add_constant"}:
+            if c := spec.get("column"):
+                signals.setdefault(str(c), []).append(
+                    ("numeric", f"computed column {name!r} ({col_type})")
+                )
+        elif col_type in {"round"}:
+            if c := spec.get("column"):
+                signals.setdefault(str(c), []).append(
+                    ("integer", f"computed column {name!r} ({col_type})")
+                )
+
+
+def _resolve_type_signals(
+    col: str,
+    type_signals: list[tuple[str, str]],
+) -> str:
+    """Resolve multiple type signals for one column."""
+    types_seen = {inferred_type for inferred_type, _ in type_signals}
+
+    if types_seen <= {"integer"}:
+        return "integer"
+
+    if types_seen <= {"integer", "numeric"}:
+        return "numeric"
+
+    if len(types_seen) > 1:
+        by_type: dict[str, list[str]] = {}
+
+        for inferred_type, source in type_signals:
+            by_type.setdefault(inferred_type, []).append(source)
+
+        details = "; ".join(
+            f"{inferred_type} (from {', '.join(sources)})"
+            for inferred_type, sources in by_type.items()
+        )
+
+        raise BundleValidationError(
+            f"Column {col!r} has conflicting type signals: {details}. "
+            "Fix the rule definitions so all predicates agree on the column type."
+        )
+
+    return next(iter(types_seen))
 
 
 def infer_column_types(
@@ -195,7 +253,7 @@ def infer_column_types(
 ) -> dict[str, str]:
     """Infer column types from rule structure and computed column specs.
 
-    Returns a dict mapping column_name -> "numeric" | "string" | "boolean".
+    Returns a dict mapping column_name -> "integer" | "numeric" | "string" | "boolean".
     Raises BundleValidationError if conflicting signals are detected.
     """
     # signals: column_name -> [(type, source_description), ...]
@@ -213,19 +271,9 @@ def infer_column_types(
 
     # Resolve each column to a single type
     resolved: dict[str, str] = {}
+
     for col, type_signals in signals.items():
-        types_seen = {t for t, _ in type_signals}
-        # Any combination of distinct types is a conflict
-        if len(types_seen) > 1:
-            by_type: dict[str, list[str]] = {}
-            for t, src in type_signals:
-                by_type.setdefault(t, []).append(src)
-            details = "; ".join(f"{t} (from {', '.join(srcs)})" for t, srcs in by_type.items())
-            raise BundleValidationError(
-                f"Column {col!r} has conflicting type signals: {details}. "
-                f"Fix the rule definitions so all predicates agree on the column type."
-            )
-        resolved[col] = next(iter(types_seen))
+        resolved[col] = _resolve_type_signals(col, type_signals)
 
     return resolved
 
@@ -234,6 +282,26 @@ def infer_column_types(
 # Coercion pass
 # ---------------------------------------------------------------------------
 
+def _coerce_integer_series(
+    series: pd.Series,
+) -> tuple[pd.Series, pd.Series]:
+    """Coerce a series to nullable integers.
+
+    Returns:
+        converted: Nullable Int64 series.
+        invalid: Boolean mask for non-null values that are invalid integers.
+    """
+    parsed = pd.to_numeric(series, errors="coerce")
+
+    is_boolean = series.map(lambda value: isinstance(value, bool))
+    is_fractional = parsed.notna() & (parsed % 1 != 0)
+
+    invalid = series.notna() & (
+        parsed.isna() | is_fractional | is_boolean
+    )
+
+    converted = parsed.mask(invalid).astype("Int64")
+    return converted, invalid
 
 def apply_numeric_coercion(
     df: pd.DataFrame,
@@ -249,22 +317,21 @@ def apply_numeric_coercion(
     log: list[CoercionEvent] = []
 
     for col, target_type in column_types.items():
-        if target_type != "numeric":
+        if target_type not in {"integer", "numeric"}:
             continue
+
         if col not in working.columns:
             continue
 
         series = working[col]
-        pre_non_null = series.notna().sum()
-
+        pre_non_null = int(series.notna().sum())
         input_dtype = str(series.dtype)
 
         if pre_non_null == 0:
-            # Column is entirely null — nothing to coerce
             log.append(
                 CoercionEvent(
                     column=col,
-                    target_type="numeric",
+                    target_type=target_type,
                     input_dtype=input_dtype,
                     total_non_null=0,
                     coerced_successfully=0,
@@ -273,32 +340,38 @@ def apply_numeric_coercion(
             )
             continue
 
-        converted = pd.to_numeric(series, errors="coerce")
-        post_non_null = converted.notna().sum()
-        failures = int(pre_non_null - post_non_null)
+        if target_type == "integer":
+            converted, invalid_mask = _coerce_integer_series(series)
+        else:
+            converted = pd.to_numeric(series, errors="coerce")
+            invalid_mask = series.notna() & converted.isna()
+
+        post_non_null = int(converted.notna().sum())
+        failures = int(invalid_mask.sum())
 
         log.append(
             CoercionEvent(
                 column=col,
-                target_type="numeric",
+                target_type=target_type,
                 input_dtype=input_dtype,
-                total_non_null=int(pre_non_null),
-                coerced_successfully=int(post_non_null),
+                total_non_null=pre_non_null,
+                coerced_successfully=post_non_null,
                 coercion_failures=failures,
             )
         )
 
         if post_non_null == 0 and pre_non_null > 0:
             raise InputSchemaError(
-                f"Column {col!r} is used as numeric but contains no parseable "
-                f"numeric values ({pre_non_null} non-null values all failed to coerce)."
+                f"Column {col!r} is used as {target_type} but contains no "
+                f"parseable {target_type} values "
+                f"({pre_non_null} non-null values all failed to coerce)."
             )
 
         if failures > 0 and warn:
             warnings.warn(
-                f"Column {col!r}: {failures} non-null value(s) could not be parsed "
-                f"as numeric and are now NaN. This may affect downstream rules "
-                f"evaluating blanks.",
+                f"Column {col!r}: {failures} non-null value(s) could not be "
+                f"parsed as {target_type} and are now NaN. This may affect "
+                "downstream rules evaluating blanks.",
                 stacklevel=3,
             )
 
