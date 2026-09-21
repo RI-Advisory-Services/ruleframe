@@ -26,10 +26,12 @@ from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
 
 
-def validate_dataframe(
+def validate_inputs(
     df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
-) -> ValidationResult:
-    """Validate a DataFrame by compiling friendly rules to JsonLogic."""
+):
+    """Validates computed column specs (structural checks, cycles, duplicates), 
+    Checks for column name collisions between input and computed columns, 
+    and Checks for missing required columns"""
 
     validate_computed_column_specs(bundle.computed_columns)
 
@@ -43,6 +45,15 @@ def validate_dataframe(
     missing = missing_rule_columns(df, bundle)
     if missing:
         raise InputSchemaError("Input is missing required rule column(s): " + ", ".join(missing))
+
+    return None
+
+
+
+def validate_dataframe(
+    df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
+) -> ValidationResult:
+    """Validate a DataFrame by compiling friendly rules to JsonLogic."""
 
     # --- Type inference and coercion ---
     column_types = infer_column_types(bundle.rules, bundle.computed_columns)
