@@ -114,23 +114,34 @@ def apply_computed_columns(df: pd.DataFrame, specs: list[dict[str, Any]]) -> pd.
     return computed
 
 
+def _normalize_integral_result(result: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(result, errors="coerce")
+
+    non_null = numeric.dropna()
+    if not non_null.empty and (non_null % 1 == 0).all():
+        return numeric.astype("Int64")
+
+    return result
+
+
 def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     column_type = spec.get("type")
     if column_type == "sum":
         columns = computed_source_columns(spec)
-        return pd.Series(df[columns].sum(axis=1, min_count=1), index=df.index)
+        result = pd.Series(df[columns].sum(axis=1, min_count=1), index=df.index)
+        return _normalize_integral_result(result)
     if column_type == "subtract":
         columns = computed_source_columns(spec)
         result: pd.Series = df[columns[0]].copy()
         for i in range(1, len(columns)):
             result = result - df[columns[i]]
-        return result
+        return _normalize_integral_result(result)
     if column_type == "multiply":
         columns = computed_source_columns(spec)
         mul_result: pd.Series = df[columns[0]].copy()
         for i in range(1, len(columns)):
             mul_result = mul_result * df[columns[i]]
-        return mul_result
+        return _normalize_integral_result(mul_result)
     if column_type == "divide":
         columns = computed_source_columns(spec)
         if len(columns) != 2:
@@ -142,7 +153,8 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         columns = computed_source_columns(spec)
         return df[columns].bfill(axis=1).iloc[:, 0]
     if column_type == "group_sum":
-        return _compute_group_sum(df, spec)
+        result = _compute_group_sum(df, spec)
+        return _normalize_integral_result(result)
     if column_type == "group_count":
         return _compute_group_count(df, spec)
     if column_type == "date_diff":
@@ -160,7 +172,8 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
             raise ValueError("scale requires string 'column' key")
         if scalar is None:
             raise ValueError("scale requires a numeric 'scalar' key")
-        return pd.Series(df[column] * scalar, index=df.index)
+        result = pd.Series(df[column] * scalar, index=df.index)
+        return _normalize_integral_result(result)
     if column_type == "add_constant":
         column = spec.get("column")
         constant = spec.get("constant")
@@ -168,7 +181,8 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
             raise ValueError("add_constant requires string 'column' key")
         if constant is None:
             raise ValueError("add_constant requires a numeric 'constant' key")
-        return pd.Series(df[column] + constant, index=df.index)
+        result = pd.Series(df[column] + constant, index=df.index)
+        return _normalize_integral_result(result)
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")
