@@ -49,7 +49,7 @@ class TestInferColumnTypesFromPredicates:
     def test_equals_with_int_implies_integer(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1}}]
         result = infer_column_types(rules, [])
-        assert result["Status"] == "integer"        
+        assert result["Status"] == "integer"
 
     def test_equals_with_bool_implies_boolean(self) -> None:
         # bool is a subclass of int in Python — must not be misidentified as numeric
@@ -95,7 +95,7 @@ class TestInferColumnTypesFromPredicates:
     def test_in_all_integers_implies_integer(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1, 2, 3]}}]
         result = infer_column_types(rules, [])
-        assert result["Code"] == "integer"        
+        assert result["Code"] == "integer"
 
     def test_in_all_strings_implies_string(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "in": ["A", "B", "C"]}}]

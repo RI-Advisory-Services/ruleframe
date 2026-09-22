@@ -26,11 +26,9 @@ from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
 
 
-def validate_inputs(
-    df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
-):
-    """Validates computed column specs (structural checks, cycles, duplicates), 
-    Checks for column name collisions between input and computed columns, 
+def validate_inputs(df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True):
+    """Validates computed column specs (structural checks, cycles, duplicates),
+    Checks for column name collisions between input and computed columns,
     and Checks for missing required columns"""
 
     validate_computed_column_specs(bundle.computed_columns)
@@ -50,11 +48,7 @@ def validate_inputs(
 
 
 def _validate_input_column_types(
-    df: pd.DataFrame,
-    column_types: dict[str, str],
-    date_cols: set[str],
-    *,
-    date_fmt: str | None,
+    df: pd.DataFrame, column_types: dict[str, str], date_cols: set[str]
 ) -> None:
     expected_types = dict(column_types)
     expected_types.update({col: "date" for col in date_cols})
@@ -72,32 +66,16 @@ def _validate_input_column_types(
         elif expected_type == "string":
             invalid = series.map(lambda value: not isinstance(value, str))
             if invalid.any():
-                errors.append(
-                    f"Column {col!r} is used as string but contains non-string values"
-                )
+                errors.append(f"Column {col!r} is used as string but contains non-string values")
 
         elif expected_type == "boolean":
             invalid = series.map(lambda value: not isinstance(value, bool))
             if invalid.any():
-                errors.append(
-                    f"Column {col!r} is used as boolean but contains non-boolean values"
-                )
-            
-
-        elif expected_type == "integer":
-            normalized = pd.to_numeric(series, errors="coerce")
-
-            invalid = normalized.isna() & series.notna()
-            non_integer = normalized.notna() & (normalized % 1 != 0)
-
-            if invalid.any() or non_integer.any():
-                errors.append(
-                    f"Column {col!r} is used as an integer but contains non-integer values"
-                )             
+                errors.append(f"Column {col!r} is used as boolean but contains non-boolean values")
 
     if errors:
         raise InputSchemaError("; ".join(errors))
-    
+
 
 def validate_dataframe(
     df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True

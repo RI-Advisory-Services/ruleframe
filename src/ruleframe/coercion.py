@@ -63,7 +63,7 @@ class CoercionEvent:
 
 
 def _infer_type_from_literal(value: Any) -> str | None:
-    """Return 'numeric', 'string', 'boolean', 'integer' or 
+    """Return 'numeric', 'string', 'boolean', 'integer' or
     None based on a YAML-parsed literal value.
     bool must be checked before int because bool is a subclass of int in Python.
     """
@@ -282,6 +282,7 @@ def infer_column_types(
 # Coercion pass
 # ---------------------------------------------------------------------------
 
+
 def _coerce_integer_series(
     series: pd.Series,
 ) -> tuple[pd.Series, pd.Series]:
@@ -296,12 +297,11 @@ def _coerce_integer_series(
     is_boolean = series.map(lambda value: isinstance(value, bool))
     is_fractional = parsed.notna() & (parsed % 1 != 0)
 
-    invalid = series.notna() & (
-        parsed.isna() | is_fractional | is_boolean
-    )
+    invalid = series.notna() & (parsed.isna() | is_fractional | is_boolean)
 
     converted = parsed.mask(invalid).astype("Int64")
     return converted, invalid
+
 
 def apply_numeric_coercion(
     df: pd.DataFrame,

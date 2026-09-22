@@ -119,9 +119,7 @@ class TestScalarPredicatesEndToEnd:
 
     def test_greater_than_or_equal(self) -> None:
         df = pd.DataFrame({"A": [10, 9]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "greater_than_or_equal": 10})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "greater_than_or_equal": 10}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_less_than(self) -> None:
@@ -131,9 +129,7 @@ class TestScalarPredicatesEndToEnd:
 
     def test_less_than_or_equal(self) -> None:
         df = pd.DataFrame({"A": [10, 11]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "less_than_or_equal": 10})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "less_than_or_equal": 10}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_in(self) -> None:
@@ -153,9 +149,7 @@ class TestScalarPredicatesEndToEnd:
 
     def test_not_contains(self) -> None:
         df = pd.DataFrame({"A": ["plain text", "has needle"]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "not_contains": "needle"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "not_contains": "needle"}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_between(self) -> None:
@@ -210,16 +204,12 @@ class TestColumnPredicatesEndToEnd:
 
     def test_not_equals_column(self) -> None:
         df = pd.DataFrame({"A": [1, 1], "B": [2, 1]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "not_equals_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "not_equals_column": "B"}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_greater_than_column(self) -> None:
         df = pd.DataFrame({"A": [3, 2], "B": [2, 3]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "greater_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "greater_than_column": "B"}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_greater_than_or_equal_column(self) -> None:
@@ -231,9 +221,7 @@ class TestColumnPredicatesEndToEnd:
 
     def test_less_than_column(self) -> None:
         df = pd.DataFrame({"A": [2, 3], "B": [3, 2]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "less_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "less_than_column": "B"}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_less_than_or_equal_column(self) -> None:
@@ -246,9 +234,7 @@ class TestColumnPredicatesEndToEnd:
     def test_null_suppression_column(self) -> None:
         """Null on either side does not fire for column comparison."""
         df = pd.DataFrame({"A": [None, 5], "B": [3, None]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "greater_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "greater_than_column": "B"}))
         assert result.findings == []
 
 
@@ -262,9 +248,7 @@ class TestDateScalarPredicatesEndToEnd:
 
     def test_date_equals(self) -> None:
         df = pd.DataFrame({"A": ["2024-03-01", "2024-03-02"]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_equals": "2024-03-01"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_equals": "2024-03-01"}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_date_greater_than(self) -> None:
@@ -283,9 +267,7 @@ class TestDateScalarPredicatesEndToEnd:
 
     def test_date_less_than(self) -> None:
         df = pd.DataFrame({"A": ["2024-01-01", "2024-06-01"]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_less_than": "2024-03-01"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_less_than": "2024-03-01"}))
         assert [f.row_index for f in result.findings] == [0]
 
     def test_date_less_than_or_equal(self) -> None:
@@ -340,18 +322,14 @@ class TestDateColumnPredicatesEndToEnd:
                 "B": ["2024-03-01", "2024-03-01", "2024-03-01"],
             }
         )
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_greater_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_greater_than_column": "B"}))
         firing = [f.row_index for f in result.findings]
         assert firing == [0]
 
     def test_date_greater_than_column_us_format(self) -> None:
         # Non-ISO format — requires normalization to work correctly
         df = pd.DataFrame({"A": ["06/01/2024", "01/01/2024"], "B": ["03/01/2024", "03/01/2024"]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_greater_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_greater_than_column": "B"}))
         firing = [f.row_index for f in result.findings]
         assert firing == [0]
 
@@ -370,9 +348,7 @@ class TestDateColumnPredicatesEndToEnd:
 
     def test_date_less_than_column(self) -> None:
         df = pd.DataFrame({"A": ["2024-01-01", "2024-06-01"], "B": ["2024-03-01", "2024-03-01"]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_less_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_less_than_column": "B"}))
         firing = [f.row_index for f in result.findings]
         assert firing == [0]
 
@@ -391,9 +367,7 @@ class TestDateColumnPredicatesEndToEnd:
 
     def test_date_equals_column(self) -> None:
         df = pd.DataFrame({"A": ["2024-03-01", "2024-03-02"], "B": ["2024-03-01", "2024-03-01"]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_equals_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_equals_column": "B"}))
         firing = [f.row_index for f in result.findings]
         assert firing == [0]
 
@@ -404,9 +378,7 @@ class TestDateColumnPredicatesEndToEnd:
                 "B": ["2024-03-01", "2024-03-01", "2024-03-01"],
             }
         )
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_not_equals_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_not_equals_column": "B"}))
         firing = [f.row_index for f in result.findings]
         # Row 1: different dates → fires. Row 2: left blank + right non-blank → fires (NullSafeNotEq).
         assert firing == [1, 2]
@@ -414,9 +386,7 @@ class TestDateColumnPredicatesEndToEnd:
     def test_date_column_predicates_null_suppression(self) -> None:
         """Blank on either side does not fire for date_greater_than_column."""
         df = pd.DataFrame({"A": [None, "2024-06-01"], "B": ["2024-03-01", None]})
-        result = validate(
-            df, _single_rule_bundle({"column": "A", "date_greater_than_column": "B"})
-        )
+        result = validate(df, _single_rule_bundle({"column": "A", "date_greater_than_column": "B"}))
         assert result.findings == []
 
     def test_date_greater_than_or_equal_column_us_format(self) -> None:
