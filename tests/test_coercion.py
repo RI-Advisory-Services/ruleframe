@@ -7,7 +7,7 @@ import warnings
 import pandas as pd
 import pytest
 
-from ruleframe import RuleBundle, validate_dataframe
+from ruleframe import RuleBundle, validate
 from ruleframe.coercion import (
     apply_numeric_coercion,
     infer_column_types,
@@ -42,9 +42,14 @@ class TestInferColumnTypesFromPredicates:
         assert result["B"] == "numeric"
 
     def test_equals_with_int_implies_numeric(self) -> None:
-        rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1}}]
+        rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1.2}}]
         result = infer_column_types(rules, [])
         assert result["Status"] == "numeric"
+
+    def test_equals_with_int_implies_integer(self) -> None:
+        rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1}}]
+        result = infer_column_types(rules, [])
+        assert result["Status"] == "integer"        
 
     def test_equals_with_bool_implies_boolean(self) -> None:
         # bool is a subclass of int in Python — must not be misidentified as numeric
@@ -70,7 +75,7 @@ class TestInferColumnTypesFromPredicates:
         ]
         result = infer_column_types(rules, [])
         assert result["BoolCol"] == "boolean"
-        assert result["IntCol"] == "numeric"
+        assert result["IntCol"] == "integer"
 
     def test_equals_with_string_implies_string(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": "Active"}}]
@@ -83,9 +88,14 @@ class TestInferColumnTypesFromPredicates:
         assert result["Type"] == "string"
 
     def test_in_all_numeric_implies_numeric(self) -> None:
-        rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1, 2, 3]}}]
+        rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1.2, 2.2, 3.2]}}]
         result = infer_column_types(rules, [])
         assert result["Code"] == "numeric"
+
+    def test_in_all_integers_implies_integer(self) -> None:
+        rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1, 2, 3]}}]
+        result = infer_column_types(rules, [])
+        assert result["Code"] == "integer"        
 
     def test_in_all_strings_implies_string(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "in": ["A", "B", "C"]}}]
@@ -317,7 +327,7 @@ class TestApplyNumericCoercion:
 
 
 # ---------------------------------------------------------------------------
-# Integration: validate_dataframe with coercion
+# Integration: validate with coercion
 # ---------------------------------------------------------------------------
 
 
@@ -336,7 +346,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate_dataframe(df, bundle)
+        result = validate(df, bundle)
         # Rows 0 and 2 have Amount > 100
         rule_ids = [f.rule_id for f in result.findings]
         assert rule_ids.count("high_amount") == 2
@@ -358,7 +368,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate_dataframe(df, bundle)
+        result = validate(df, bundle)
         assert len(result.coercion_log) == 1
         assert result.coercion_log[0].column == "Score"
         assert result.coercion_log[0].coercion_failures == 0
@@ -377,7 +387,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate_dataframe(df, bundle)
+        result = validate(df, bundle)
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
 
@@ -395,7 +405,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate_dataframe(df, bundle)
+        result = validate(df, bundle)
         # Only row 1 (False) should fire
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
@@ -422,7 +432,7 @@ class TestValidateDataframeCoercion:
             }
         )
         with pytest.raises(BundleValidationError, match="date predicates and numeric"):
-            validate_dataframe(df, bundle)
+            validate(df, bundle)
 
     def test_mixed_in_list_raises_at_validation_time(self) -> None:
         df = pd.DataFrame({"X": ["a", "b"]})
@@ -438,7 +448,7 @@ class TestValidateDataframeCoercion:
             }
         )
         with pytest.raises(BundleValidationError, match="mixed types"):
-            validate_dataframe(df, bundle)
+            validate(df, bundle)
 
     def test_conflict_raises_at_validation_time(self) -> None:
         df = pd.DataFrame({"X": ["1", "2"]})
@@ -459,10 +469,10 @@ class TestValidateDataframeCoercion:
             }
         )
         with pytest.raises(BundleValidationError, match="conflicting type signals"):
-            validate_dataframe(df, bundle)
+            validate(df, bundle)
 
     def test_warn_false_suppresses_coercion_warnings(self) -> None:
-        df = pd.DataFrame({"Score": ["10", "bad", "30"]})
+        df = pd.DataFrame({"Score": ["10.1", "bad", "30.2"]})
         bundle = RuleBundle.from_json_dict(
             {
                 "rules": [
@@ -476,7 +486,7 @@ class TestValidateDataframeCoercion:
         )
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            result = validate_dataframe(df, bundle, warn=False)
+            result = validate(df, bundle, warn=False)
         assert len(w) == 0
         assert result.coercion_log[0].coercion_failures == 1
 
@@ -495,7 +505,7 @@ class TestValidateDataframeCoercion:
                 ],
             }
         )
-        result = validate_dataframe(df, bundle)
+        result = validate(df, bundle)
         # Total for row 1: 20+5=25 > 20
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1

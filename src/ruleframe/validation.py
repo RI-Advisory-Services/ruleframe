@@ -69,13 +69,6 @@ def _validate_input_column_types(
         if series.empty:
             continue
 
-        if expected_type == "numeric":
-            converted = pd.to_numeric(series, errors="coerce")
-            if converted.isna().any():
-                errors.append(
-                    f"Column {col!r} is used as numeric but contains non-numeric values"
-                )
-
         elif expected_type == "string":
             invalid = series.map(lambda value: not isinstance(value, str))
             if invalid.any():
@@ -89,15 +82,9 @@ def _validate_input_column_types(
                 errors.append(
                     f"Column {col!r} is used as boolean but contains non-boolean values"
                 )
+            
 
-        elif expected_type == "date":
-            normalized = normalize_date_series(series, fmt=date_fmt)
-            if normalized.isna().any():
-                errors.append(
-                    f"Column {col!r} is used as date but contains values that cannot be parsed"
-                )
-
-        elif expected_type == "int":
+        elif expected_type == "integer":
             normalized = pd.to_numeric(series, errors="coerce")
 
             invalid = normalized.isna() & series.notna()
@@ -194,9 +181,9 @@ def validate_dataframe(
     )
 
 
-def validate(df, bundle):
+def validate(df, bundle, warn: bool = True):
     validate_inputs(df, bundle)
-    return validate_dataframe(df, bundle)
+    return validate_dataframe(df, bundle, warn=warn)
 
 
 def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:

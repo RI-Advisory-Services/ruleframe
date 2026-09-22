@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import ruleframe.computed as computed_module
-from ruleframe import validate_dataframe
+from ruleframe import validate
 from ruleframe.computed import (
     _compute_days_since_today,
     _compute_years_since_year,
@@ -781,7 +781,7 @@ def test_alias_w_none() -> None:
 
 
 def test_arithmetic_divide_produces_correct_ratio(arithmetic_df, arithmetic_bundle) -> None:
-    result = validate_dataframe(arithmetic_df, arithmetic_bundle)
+    result = validate(arithmetic_df, arithmetic_bundle)
     annotated = result.to_annotated_dataframe()
     # R1: 1000/500 = 2.0, R2: 800/400 = 2.0, R3: 600/0 → NaN, R4: 0/200 = 0.0
     assert annotated["Output Input Ratio"].iloc[0] == 2.0
@@ -791,7 +791,7 @@ def test_arithmetic_divide_produces_correct_ratio(arithmetic_df, arithmetic_bund
 
 
 def test_arithmetic_sum_adds_all_savings(arithmetic_df, arithmetic_bundle) -> None:
-    result = validate_dataframe(arithmetic_df, arithmetic_bundle)
+    result = validate(arithmetic_df, arithmetic_bundle)
     annotated = result.to_annotated_dataframe()
     # R1: 10+5+2=17, R2: 8+0+1=9, R3: 6+3+0=9, R4: NaN+4+1 → 5 (min_count=1 skips NaN)
     assert annotated["Total Savings"].iloc[0] == 17.0
@@ -801,14 +801,14 @@ def test_arithmetic_sum_adds_all_savings(arithmetic_df, arithmetic_bundle) -> No
 
 
 def test_arithmetic_subtract_produces_variance(arithmetic_df, arithmetic_bundle) -> None:
-    result = validate_dataframe(arithmetic_df, arithmetic_bundle)
+    result = validate(arithmetic_df, arithmetic_bundle)
     annotated = result.to_annotated_dataframe()
     # R1: 17-17=0, R2: 9-9=0, R3: 9-9=0, R4: 5-5=0
     assert annotated["Savings Variance"].tolist() == [0.0, 0.0, 0.0, 0.0]
 
 
 def test_arithmetic_multiply_produces_product(arithmetic_df, arithmetic_bundle) -> None:
-    result = validate_dataframe(arithmetic_df, arithmetic_bundle)
+    result = validate(arithmetic_df, arithmetic_bundle)
     annotated = result.to_annotated_dataframe()
     # R1: 1000*500=500000, R2: 800*400=320000, R3: 600*0=0, R4: 0*200=0
     assert annotated["Output Times Input"].iloc[0] == 500000.0
@@ -819,13 +819,13 @@ def test_arithmetic_multiply_produces_product(arithmetic_df, arithmetic_bundle) 
 
 def test_arithmetic_divide_triggers_ratio_warning(arithmetic_df, arithmetic_bundle) -> None:
     # No row has Output/Input > 2.5 in our data, so no findings for ratio_too_high
-    result = validate_dataframe(arithmetic_df, arithmetic_bundle)
+    result = validate(arithmetic_df, arithmetic_bundle)
     ratio_findings = [f for f in result.findings if f.rule_id == "ratio_too_high"]
     assert ratio_findings == []
 
 
 def test_arithmetic_variance_zero_triggers_no_findings(arithmetic_df, arithmetic_bundle) -> None:
-    result = validate_dataframe(arithmetic_df, arithmetic_bundle)
+    result = validate(arithmetic_df, arithmetic_bundle)
     variance_findings = [f for f in result.findings if f.rule_id == "savings_variance_nonzero"]
     assert variance_findings == []
 
@@ -836,7 +836,7 @@ def test_arithmetic_variance_zero_triggers_no_findings(arithmetic_df, arithmetic
 
 
 def test_group_sum_bef_kwh_correct_per_project(group_aggregate_df, group_aggregate_bundle) -> None:
-    result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
+    result = validate(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project BEF Total kWh"
     # P1 BEF total is 150 on all P1 rows; P2 BEF total is 80 on all P2 rows; P3 has no BEF rows.
@@ -853,7 +853,7 @@ def test_group_sum_bef_kwh_correct_per_project(group_aggregate_df, group_aggrega
 def test_group_sum_hs_incentive_correct_per_project(
     group_aggregate_df, group_aggregate_bundle
 ) -> None:
-    result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
+    result = validate(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project H&S Total Incentive"
     # P2 H&S total is 300 on all P2 rows; P3 H&S total is 250 on all P3 rows
@@ -866,7 +866,7 @@ def test_group_sum_hs_incentive_correct_per_project(
 
 
 def test_group_sum_total_kwh_covers_all_rows(group_aggregate_df, group_aggregate_bundle) -> None:
-    result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
+    result = validate(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project Total kWh"
     # P1 total: 100+50+30=180; P2 total: 80+0=80; P3 total: 20+0+0=20
@@ -876,7 +876,7 @@ def test_group_sum_total_kwh_covers_all_rows(group_aggregate_df, group_aggregate
 
 
 def test_group_count_bef_per_project(group_aggregate_df, group_aggregate_bundle) -> None:
-    result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
+    result = validate(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project BEF Count"
     # P1 has 2 BEF rows, P2 has 1 BEF row, P3 has none.
@@ -891,7 +891,7 @@ def test_group_count_bef_per_project(group_aggregate_df, group_aggregate_bundle)
 
 
 def test_group_count_row_count_per_project(group_aggregate_df, group_aggregate_bundle) -> None:
-    result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
+    result = validate(group_aggregate_df, group_aggregate_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Project Row Count"
     # P1=3 rows, P2=2 rows, P3=3 rows
@@ -901,7 +901,7 @@ def test_group_count_row_count_per_project(group_aggregate_df, group_aggregate_b
 
 
 def test_group_sum_triggers_high_bef_finding(group_aggregate_df, group_aggregate_bundle) -> None:
-    result = validate_dataframe(group_aggregate_df, group_aggregate_bundle)
+    result = validate(group_aggregate_df, group_aggregate_bundle)
     # P1 BEF total kWh = 150 > 100, but the rule is scoped to BEF rows.
     findings = [f for f in result.findings if f.rule_id == "high_bef_kwh"]
     assert len(findings) == 2
@@ -914,7 +914,7 @@ def test_group_sum_triggers_high_bef_finding(group_aggregate_df, group_aggregate
 
 
 def test_date_diff_days_to_inspection(date_df, date_bundle) -> None:
-    result = validate_dataframe(date_df, date_bundle)
+    result = validate(date_df, date_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Days to Inspection"
     # R1: 2020-01-01 → 2020-01-15 = 14 days
@@ -930,7 +930,7 @@ def test_date_diff_days_to_inspection(date_df, date_bundle) -> None:
 
 
 def test_days_since_today_days_since_installation(date_df, date_bundle) -> None:
-    result = validate_dataframe(date_df, date_bundle)
+    result = validate(date_df, date_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Days Since Installation"
     today = pd.Timestamp(datetime.date.today())
@@ -942,7 +942,7 @@ def test_days_since_today_days_since_installation(date_df, date_bundle) -> None:
 
 
 def test_years_since_year_system_age(date_df, date_bundle) -> None:
-    result = validate_dataframe(date_df, date_bundle)
+    result = validate(date_df, date_bundle)
     annotated = result.to_annotated_dataframe()
     col = "System Age"
     current_year = datetime.date.today().year
@@ -955,7 +955,7 @@ def test_years_since_year_system_age(date_df, date_bundle) -> None:
 
 
 def test_coalesce_best_available_date(date_df, date_bundle) -> None:
-    result = validate_dataframe(date_df, date_bundle)
+    result = validate(date_df, date_bundle)
     annotated = result.to_annotated_dataframe()
     col = "Best Available Date"
     # R1: Date Inspected = 2020-01-15 (normalized Timestamp)
@@ -971,7 +971,7 @@ def test_coalesce_best_available_date(date_df, date_bundle) -> None:
 
 
 def test_date_rules_trigger_correct_findings(date_df, date_bundle) -> None:
-    result = validate_dataframe(date_df, date_bundle)
+    result = validate(date_df, date_bundle)
     # inspection_too_late: Days to Inspection > 30 → none qualify (max is 30, not >30)
     # R3 and R4 have no date_diff value (NaN) → null-safe operator returns False, no finding
     late_findings = [f for f in result.findings if f.rule_id == "inspection_too_late"]
@@ -988,7 +988,7 @@ def test_date_rules_trigger_correct_findings(date_df, date_bundle) -> None:
 
 
 def test_all_blank_or_zero_flag_column_values(savings_flag_df, savings_flag_bundle) -> None:
-    result = validate_dataframe(savings_flag_df, savings_flag_bundle)
+    result = validate(savings_flag_df, savings_flag_bundle)
     annotated = result.to_annotated_dataframe()
     col = "All Savings Zero or Blank"
     # R1: 0,0,0 → 1
@@ -1003,7 +1003,7 @@ def test_all_blank_or_zero_flag_column_values(savings_flag_df, savings_flag_bund
 def test_all_blank_or_zero_triggers_findings_on_correct_rows(
     savings_flag_df, savings_flag_bundle
 ) -> None:
-    result = validate_dataframe(savings_flag_df, savings_flag_bundle)
+    result = validate(savings_flag_df, savings_flag_bundle)
     findings = [f for f in result.findings if f.rule_id == "no_savings_recorded"]
     # Rows 0,1,2,5 (R1,R2,R3,R6) should produce findings
     assert len(findings) == 4
@@ -1016,7 +1016,7 @@ def test_all_blank_or_zero_triggers_findings_on_correct_rows(
 
 
 def test_single_column_ops_integration(single_column_op_df, single_column_op_bundle) -> None:
-    result = validate_dataframe(single_column_op_df, single_column_op_bundle)
+    result = validate(single_column_op_df, single_column_op_bundle)
     annotated = result.to_annotated_dataframe()
     # R1: 500.01, R2: 400.20, R3: 0.99, R4: 200.55
     col = "Double Input BTU"
