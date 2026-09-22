@@ -132,7 +132,7 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         return _normalize_integral_result(result)
     if column_type == "subtract":
         columns = computed_source_columns(spec)
-        result: pd.Series = df[columns[0]].copy()
+        result = df[columns[0]].copy()
         for i in range(1, len(columns)):
             result = result - df[columns[i]]
         return _normalize_integral_result(result)
