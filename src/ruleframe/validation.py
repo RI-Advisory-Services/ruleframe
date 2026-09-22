@@ -100,7 +100,7 @@ def validate_dataframe(
         )
 
     # --- Cross-check: input column values must match inferred column roles ---
-    _validate_input_column_types(df, column_types, date_cols, date_fmt=date_fmt)
+    _validate_input_column_types(df, column_types, date_cols)
 
     working_df, coercion_log = apply_numeric_coercion(df, column_types, warn=warn)
 
