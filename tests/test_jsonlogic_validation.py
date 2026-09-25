@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from ruleframe import RuleBundle, validate
+from ruleframe import RuleBundle, validate_dataframe
 from ruleframe.exceptions import InputSchemaError
 
 
@@ -69,7 +69,7 @@ def test_validate_dataframe_supports_jsonlogic_operator_registry() -> None:
         }
     )
 
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
 
     assert [finding.rule_id for finding in result.findings] == [
         "fossil_fuel_missing_customer_status",
@@ -110,7 +110,7 @@ def test_not_equals_fires_when_column_is_blank() -> None:
         }
     )
 
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing_rows = [f.row_index for f in result.findings if f.rule_id == "eer_must_be_zero"]
     assert firing_rows == [0, 2]  # blank and wrong-value rows, not the correct row
 
@@ -138,7 +138,7 @@ def test_not_equals_column_both_blank_does_not_fire() -> None:
         }
     )
 
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing_rows = [f.row_index for f in result.findings if f.rule_id == "a_must_equal_b"]
     assert firing_rows == [1]  # only the differing-values row
 
@@ -228,7 +228,7 @@ def _single_rule_bundle(condition: dict) -> RuleBundle:
 def test_validate_dataframe_supports_remaining_predicates(
     condition, records, expected_rows
 ) -> None:
-    result = validate(pd.DataFrame(records), _single_rule_bundle(condition))
+    result = validate_dataframe(pd.DataFrame(records), _single_rule_bundle(condition))
     firing_rows = [finding.row_index for finding in result.findings]
     assert firing_rows == expected_rows
 
@@ -249,7 +249,7 @@ def test_validate_dataframe_reports_missing_rule_columns() -> None:
     )
 
     with pytest.raises(InputSchemaError, match="B"):
-        validate(df, bundle)
+        validate_dataframe(df, bundle)
 
 
 # ===========================================================================
@@ -277,7 +277,7 @@ def _date_op_bundle(rule_id: str, op: str, value) -> RuleBundle:
 def test_date_greater_than_fires_when_date_exceeds_threshold() -> None:
     df = pd.DataFrame({"Event Date": ["2024-06-01", "2024-01-01", None]})
     bundle = _date_op_bundle("r", "date_greater_than", "2024-03-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0]  # June > March; January is not; None does not fire
 
@@ -285,7 +285,7 @@ def test_date_greater_than_fires_when_date_exceeds_threshold() -> None:
 def test_date_less_than_fires_when_date_precedes_threshold() -> None:
     df = pd.DataFrame({"Event Date": ["2024-01-01", "2024-06-01", None]})
     bundle = _date_op_bundle("r", "date_less_than", "2024-03-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0]  # January < March; June is not; None does not fire
 
@@ -293,7 +293,7 @@ def test_date_less_than_fires_when_date_precedes_threshold() -> None:
 def test_date_greater_than_or_equal_fires_on_match_and_above() -> None:
     df = pd.DataFrame({"Event Date": ["2024-03-01", "2024-03-02", "2024-02-28"]})
     bundle = _date_op_bundle("r", "date_greater_than_or_equal", "2024-03-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0, 1]  # exact match and above; Feb 28 does not fire
 
@@ -301,7 +301,7 @@ def test_date_greater_than_or_equal_fires_on_match_and_above() -> None:
 def test_date_less_than_or_equal_fires_on_match_and_below() -> None:
     df = pd.DataFrame({"Event Date": ["2024-03-01", "2024-02-28", "2024-03-02"]})
     bundle = _date_op_bundle("r", "date_less_than_or_equal", "2024-03-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0, 1]  # exact match and below; March 2 does not fire
 
@@ -309,7 +309,7 @@ def test_date_less_than_or_equal_fires_on_match_and_below() -> None:
 def test_date_equals_fires_only_on_exact_match() -> None:
     df = pd.DataFrame({"Event Date": ["2024-03-01", "2024-03-02", None]})
     bundle = _date_op_bundle("r", "date_equals", "2024-03-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0]
 
@@ -319,7 +319,7 @@ def test_date_between_fires_within_inclusive_range() -> None:
         {"Event Date": ["2024-01-01", "2024-03-01", "2024-06-01", "2024-12-31", None]}
     )
     bundle = _date_op_bundle("r", "date_between", ["2024-03-01", "2024-06-01"])
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [1, 2]  # Jan and Dec are outside; boundaries are inclusive; None does not fire
 
@@ -327,7 +327,7 @@ def test_date_between_fires_within_inclusive_range() -> None:
 def test_date_not_between_fires_outside_range() -> None:
     df = pd.DataFrame({"Event Date": ["2024-01-01", "2024-03-01", "2024-06-01", "2024-12-31"]})
     bundle = _date_op_bundle("r", "date_not_between", ["2024-03-01", "2024-06-01"])
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0, 3]  # Jan and Dec are outside range
 
@@ -336,7 +336,7 @@ def test_date_operators_accept_us_format_strings() -> None:
     # Columns in MM/DD/YYYY format — should parse via normalization before operator runs
     df = pd.DataFrame({"Event Date": ["06/01/2024", "01/01/2024"]})
     bundle = _date_op_bundle("r", "date_greater_than", "2024-03-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0]  # June > March
 
@@ -344,7 +344,7 @@ def test_date_operators_accept_us_format_strings() -> None:
 def test_date_operators_null_column_value_does_not_fire() -> None:
     df = pd.DataFrame({"Event Date": [None, pd.NaT, ""]})
     bundle = _date_op_bundle("r", "date_greater_than", "2000-01-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     assert result.findings == []
 
 
@@ -353,7 +353,7 @@ def test_date_operators_infer_date_column_normalization() -> None:
     # the rule uses a date operator so normalization should happen automatically.
     df = pd.DataFrame({"Event Date": ["2024-06-01 14:32:00"]})
     bundle = _date_op_bundle("r", "date_greater_than", "2024-01-01")
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     # Time component stripped; date comparison should still fire
     assert len(result.findings) == 1
 
@@ -380,7 +380,7 @@ def test_date_format_setting_parses_strict_format() -> None:
             ],
         }
     )
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     assert firing == [0]
 
@@ -402,7 +402,7 @@ def test_date_format_setting_rejects_non_conforming_values() -> None:
             ],
         }
     )
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     # ISO string doesn't match declared format → treated as null → no firing
     assert result.findings == []
 
@@ -442,7 +442,7 @@ def test_date_diff_columns_are_normalized_before_computation() -> None:
             ],
         }
     )
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     # Row 0: Jan 1 to Mar 31 = 90 days → fires; Row 1: same date = 0 days → no fire
     assert firing == [0]
@@ -467,7 +467,7 @@ def test_days_since_today_column_is_normalized_before_computation() -> None:
             ],
         }
     )
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     # 2020-01-01 is ~2340 days ago → fires; 2025-01-01 is ~517 days ago → no fire
     assert firing == [0]
@@ -497,7 +497,7 @@ def test_days_apart_greater_than_columns_are_normalized() -> None:
             ],
         }
     )
-    result = validate(df, bundle)
+    result = validate_dataframe(df, bundle)
     firing = [f.row_index for f in result.findings]
     # Row 0: Jan 1 to Jun 1 = 152 days → fires; Row 1: 14 days → no fire
     assert firing == [0]

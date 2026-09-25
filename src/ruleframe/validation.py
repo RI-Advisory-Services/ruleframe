@@ -77,7 +77,7 @@ def _validate_input_column_types(
         raise InputSchemaError("; ".join(errors))
 
 
-def validate_dataframe(
+def _execute_rule_bundle(
     df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
 ) -> ValidationResult:
     """Validate a DataFrame by compiling friendly rules to JsonLogic,
@@ -159,9 +159,9 @@ def validate_dataframe(
     )
 
 
-def validate(df, bundle, warn: bool = True):
+def validate_dataframe(df, bundle, warn: bool = True):
     validate_inputs(df, bundle)
-    return validate_dataframe(df, bundle, warn=warn)
+    return _execute_rule_bundle(df, bundle, warn=warn)
 
 
 def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:

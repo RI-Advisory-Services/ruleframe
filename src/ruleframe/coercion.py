@@ -211,7 +211,7 @@ def _infer_types_from_computed(
         elif col_type in {"round"}:
             if c := spec.get("column"):
                 signals.setdefault(str(c), []).append(
-                    ("integer", f"computed column {name!r} ({col_type})")
+                    ("numeric", f"computed column {name!r} ({col_type})")
                 )
 
 

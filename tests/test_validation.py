@@ -1,12 +1,12 @@
 import pandas as pd
 import pytest
 
-from ruleframe import RuleBundle, validate
+from ruleframe import RuleBundle, validate_dataframe
 from ruleframe.exceptions import BundleValidationError, InputSchemaError
 
 
 def test_validation_returns_findings(sample_df, sample_bundle) -> None:
-    result = validate(sample_df, sample_bundle)
+    result = validate_dataframe(sample_df, sample_bundle)
     assert [finding.rule_id for finding in result.findings] == [
         "qaqc_unresolved_issue",
         "missing_customer_status",
@@ -20,7 +20,7 @@ def test_validation_returns_findings(sample_df, sample_bundle) -> None:
 
 
 def test_summary_dataframe_has_counts(sample_df, sample_bundle) -> None:
-    result = validate(sample_df, sample_bundle)
+    result = validate_dataframe(sample_df, sample_bundle)
     summary = result.to_summary_dataframe()
     assert not summary.empty
     assert set(summary.columns) == {"rule_id", "severity", "count"}
@@ -29,7 +29,7 @@ def test_summary_dataframe_has_counts(sample_df, sample_bundle) -> None:
 def test_validation_supports_split_node_fixture(
     workflow_split_node_df, workflow_split_node_bundle
 ) -> None:
-    result = validate(workflow_split_node_df, workflow_split_node_bundle)
+    result = validate_dataframe(workflow_split_node_df, workflow_split_node_bundle)
 
     assert [finding.rule_id for finding in result.findings] == [
         "manual_review_not_prioritized",
@@ -43,7 +43,7 @@ def test_validation_supports_split_node_fixture(
 def test_computed_columns_are_added_before_validation(
     computed_savings_df, computed_savings_bundle
 ) -> None:
-    result = validate(computed_savings_df, computed_savings_bundle)
+    result = validate_dataframe(computed_savings_df, computed_savings_bundle)
 
     assert [finding.rule_id for finding in result.findings] == [
         "total_savings_mismatch",
@@ -59,7 +59,7 @@ def test_missing_computed_source_columns_are_reported(
     df = computed_savings_df.drop(columns=["Measure Gross Therm Savings"])
 
     with pytest.raises(InputSchemaError, match="Measure Gross Therm Savings"):
-        validate(df, computed_savings_bundle)
+        validate_dataframe(df, computed_savings_bundle)
 
 
 def test_computed_column_name_collision_raises() -> None:
@@ -79,7 +79,7 @@ def test_computed_column_name_collision_raises() -> None:
         }
     )
     with pytest.raises(InputSchemaError, match="collide with existing input"):
-        validate(df, bundle)
+        validate_dataframe(df, bundle)
 
 
 def test_computed_column_name_collision_does_not_raise_when_no_overlap() -> None:
@@ -93,7 +93,7 @@ def test_computed_column_name_collision_does_not_raise_when_no_overlap() -> None
             "rules": [],
         }
     )
-    validate(df, bundle)  # should not raise
+    validate_dataframe(df, bundle)  # should not raise
 
 
 def test_duplicate_computed_column_output_names_raise() -> None:
@@ -110,4 +110,4 @@ def test_duplicate_computed_column_output_names_raise() -> None:
     )
 
     with pytest.raises(BundleValidationError, match="must be unique: Total"):
-        validate(df, bundle)
+        validate_dataframe(df, bundle)

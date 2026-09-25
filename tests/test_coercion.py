@@ -7,7 +7,7 @@ import warnings
 import pandas as pd
 import pytest
 
-from ruleframe import RuleBundle, validate
+from ruleframe import RuleBundle, validate_dataframe
 from ruleframe.coercion import (
     apply_numeric_coercion,
     infer_column_types,
@@ -401,7 +401,7 @@ class TestValidateDataframeCoercion:
             }
         )
 
-        result = validate(pd.DataFrame({column: values}), bundle)
+        result = validate_dataframe(pd.DataFrame({column: values}), bundle)
 
         assert result.findings == []
         assert result.working_dataframe[column].tolist() == values
@@ -421,7 +421,7 @@ class TestValidateDataframeCoercion:
         )
 
         with pytest.raises(InputSchemaError, match="used as string"):
-            validate(df, bundle)
+            validate_dataframe(df, bundle)
 
     def test_boolean_columns_accept_booleans_and_preserve_values(self) -> None:
         df = pd.DataFrame({"Enabled": [True, False, None]})
@@ -436,7 +436,7 @@ class TestValidateDataframeCoercion:
             }
         )
 
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
 
         assert [finding.row_index for finding in result.findings] == [0]
         assert result.working_dataframe["Enabled"].tolist() == [True, False, None]
@@ -457,7 +457,7 @@ class TestValidateDataframeCoercion:
         )
 
         with pytest.raises(InputSchemaError, match="used as boolean"):
-            validate(df, bundle)
+            validate_dataframe(df, bundle)
 
     def test_integer_columns_reject_fractional_values_but_keep_integral_values(self) -> None:
         df = pd.DataFrame({"Count": ["1", "2", "3"]})
@@ -472,7 +472,7 @@ class TestValidateDataframeCoercion:
             }
         )
 
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
 
         assert result.working_dataframe["Count"].tolist() == [1, 2, 3]
         assert str(result.working_dataframe["Count"].dtype) == "Int64"
@@ -493,7 +493,7 @@ class TestValidateDataframeCoercion:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            result = validate(df, bundle)
+            result = validate_dataframe(df, bundle)
 
         assert len(caught) == 1
         assert result.working_dataframe["Count"].tolist() == [1, pd.NA, 3]
@@ -514,7 +514,7 @@ class TestValidateDataframeCoercion:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            result = validate(df, bundle)
+            result = validate_dataframe(df, bundle)
 
         assert len(caught) == 1
         assert result.working_dataframe["Count"].tolist() == [1, pd.NA, 3]
@@ -534,7 +534,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
         # Rows 0 and 2 have Amount > 100
         rule_ids = [f.rule_id for f in result.findings]
         assert rule_ids.count("high_amount") == 2
@@ -556,7 +556,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
         assert len(result.coercion_log) == 1
         assert result.coercion_log[0].column == "Score"
         assert result.coercion_log[0].coercion_failures == 0
@@ -575,7 +575,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
 
@@ -593,7 +593,7 @@ class TestValidateDataframeCoercion:
                 ]
             }
         )
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
         # Only row 1 (False) should fire
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
@@ -620,7 +620,7 @@ class TestValidateDataframeCoercion:
             }
         )
 
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
 
         assert [finding.row_index for finding in result.findings] == [0]
         assert pd.api.types.is_datetime64_dtype(result.working_dataframe["EventDate"])
@@ -645,7 +645,7 @@ class TestValidateDataframeCoercion:
             }
         )
 
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
 
         assert pd.isna(result.working_dataframe["EventDate"].iloc[0])
         assert result.working_dataframe["EventDate"].iloc[1] == pd.Timestamp("2024-02-01")
@@ -670,7 +670,7 @@ class TestValidateDataframeCoercion:
             }
         )
         with pytest.raises(BundleValidationError, match="date predicates and numeric"):
-            validate(df, bundle)
+            validate_dataframe(df, bundle)
 
     def test_mixed_in_list_raises_at_validation_time(self) -> None:
         df = pd.DataFrame({"X": ["a", "b"]})
@@ -686,7 +686,7 @@ class TestValidateDataframeCoercion:
             }
         )
         with pytest.raises(BundleValidationError, match="mixed types"):
-            validate(df, bundle)
+            validate_dataframe(df, bundle)
 
     def test_conflict_raises_at_validation_time(self) -> None:
         df = pd.DataFrame({"X": ["1", "2"]})
@@ -707,7 +707,7 @@ class TestValidateDataframeCoercion:
             }
         )
         with pytest.raises(BundleValidationError, match="conflicting type signals"):
-            validate(df, bundle)
+            validate_dataframe(df, bundle)
 
     def test_warn_false_suppresses_coercion_warnings(self) -> None:
         df = pd.DataFrame({"Score": ["10.1", "bad", "30.2"]})
@@ -724,7 +724,7 @@ class TestValidateDataframeCoercion:
         )
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            result = validate(df, bundle, warn=False)
+            result = validate_dataframe(df, bundle, warn=False)
         assert len(w) == 0
         assert result.coercion_log[0].coercion_failures == 1
 
@@ -743,7 +743,7 @@ class TestValidateDataframeCoercion:
                 ],
             }
         )
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
         # Total for row 1: 20+5=25 > 20
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
@@ -772,7 +772,7 @@ class TestValidateDataframeCoercion:
             }
         )
 
-        result = validate(df, bundle)
+        result = validate_dataframe(df, bundle)
 
         assert [(finding.rule_id, finding.row_index) for finding in result.findings] == [
             ("large_count", 1),
