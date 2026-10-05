@@ -25,6 +25,7 @@ VALID_COMPUTED_TYPES = frozenset(
         "add_constant",
         "round",
         "alias",
+        "contains_substring"
     }
 )
 
@@ -182,6 +183,8 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         if not isinstance(column, str):
             raise ValueError("alias requires string 'column' key")
         return df[column].copy()
+    if column_type == "contains_substring":
+        return _compute_contains_substring(df, spec, case_sense_flag=False)
     raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 
 
@@ -281,6 +284,33 @@ def _compute_all_blank_or_zero(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Ser
         all_blank_or_zero = all_blank_or_zero & col_ok
 
     return all_blank_or_zero.astype(int)
+
+
+def _compute_contains_substring(
+    df: pd.DataFrame,
+    spec: dict[str, Any],
+    case_sense_flag: bool,
+) -> pd.Series:
+    """Check if any listed column contains the specified substring for the row."""
+    columns = computed_source_columns(spec)
+    substring = spec.get("substring")
+
+    if not substring:
+        raise ValueError("contains_substring requires a substring")
+
+    contains = pd.Series(False, index=df.index)
+
+    for col in columns:
+        s = df[col].astype(str)
+
+        if case_sense_flag:
+            # Case-sensitive: "Apple" matches "Apple pie", but not "apple pie"
+            contains = contains | s.astype(str).str.contains(substring, regex=False)
+        else:
+            # Case-insensitive prefix match
+            contains = contains | s.astype(str).str.contains(substring, case=False, regex=False)
+
+    return contains.astype(int)
 
 
 def computed_column_name(spec: dict[str, Any]) -> str:
