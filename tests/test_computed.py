@@ -771,6 +771,120 @@ def test_alias_w_none() -> None:
     assert result.iloc[3] == 100.0
 
 
+# ---------------------------------------------------------------------------
+# contains_substring
+# ---------------------------------------------------------------------------
+
+
+def test_contains_substring_matches_case_insensitively_across_columns() -> None:
+    df = pd.DataFrame(
+        {
+            "Apples Types": [
+                "apple",
+                "Apple",
+                "green apple",
+                "Green Apple",
+                "Pineapple",
+                None,
+                "APPle pie",
+                "oranges",
+            ],
+        }
+    )
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Apples Types"],
+        "substring": "Apple",
+        "id": "result",
+        "case_sense_flag": False,
+    }
+    result = compute_column(df, spec)
+    assert result.tolist() == [1, 1, 1, 1, 1, 0, 1, 0]
+
+
+def test_contains_substring_matches_case_insensitively_across_columns_multiple() -> None:
+    df = pd.DataFrame(
+        {
+            "Apples Types": ["apple", "Apple", "green apple", "Green Apple", None, "APPle pie"],
+            "Fruit Types": ["apple", "pinapple", "orange", "grape", None, "papple"],
+        }
+    )
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Apples Types", "Fruit Types"],
+        "substring": "Apple",
+        "id": "result",
+        "case_sense_flag": False,
+    }
+    result = compute_column(df, spec)
+    assert result.tolist() == [1, 1, 1, 1, 0, 1]
+
+
+def test_contains_substring_matches_case_sensitively_across_columns() -> None:
+    df = pd.DataFrame(
+        {
+            "Apples Types": [
+                "apple",
+                "Apple",
+                "green apple",
+                "Green Apple",
+                "Pineapple",
+                None,
+                "APPle pie",
+                "oranges",
+            ],
+        }
+    )
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Apples Types"],
+        "substring": "Apple",
+        "id": "result",
+        "case_sense_flag": True,
+    }
+    result = compute_column(df, spec)
+    assert result.tolist() == [0, 1, 0, 1, 0, 0, 0, 0]
+
+
+def test_contains_substring_matches_case_sensitively_across_columns_multiple() -> None:
+    df = pd.DataFrame(
+        {
+            "Apples Types": ["apple", "Apple", "green apple", "Green Apple", None, "APPle pie"],
+            "Fruit Types": ["apple", "Green Apple", "orange", "grape", None, "papple"],
+        }
+    )
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Apples Types", "Fruit Types"],
+        "substring": "Apple",
+        "id": "result",
+        "case_sense_flag": True,
+    }
+    result = compute_column(df, spec)
+    assert result.tolist() == [0, 1, 0, 1, 0, 0]
+
+
+def test_contains_substring_returns_zero_for_blank_and_nonmatching_values() -> None:
+    df = pd.DataFrame(
+        {
+            "Apples Types": [
+                None,
+                "",
+                "Orange",
+            ],
+        }
+    )
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Apples Types"],
+        "substring": "Apple",
+        "id": "result",
+        "case_sense_flag": False,
+    }
+    result = compute_column(df, spec)
+    assert result.tolist() == [0, 0, 0]
+
+
 # ===========================================================================
 # Fixture-driven integration tests (YAML rules + CSV data)
 # ===========================================================================

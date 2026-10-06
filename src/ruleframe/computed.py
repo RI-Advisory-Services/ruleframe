@@ -25,7 +25,7 @@ VALID_COMPUTED_TYPES = frozenset(
         "add_constant",
         "round",
         "alias",
-        "contains_substring"
+        "contains_substring",
     }
 )
 
@@ -184,7 +184,7 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
             raise ValueError("alias requires string 'column' key")
         return df[column].copy()
     if column_type == "contains_substring":
-        return _compute_contains_substring(df, spec, case_sense_flag=False)
+        return _compute_contains_substring(df, spec)
     raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 
 
@@ -286,14 +286,11 @@ def _compute_all_blank_or_zero(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Ser
     return all_blank_or_zero.astype(int)
 
 
-def _compute_contains_substring(
-    df: pd.DataFrame,
-    spec: dict[str, Any],
-    case_sense_flag: bool,
-) -> pd.Series:
+def _compute_contains_substring(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     """Check if any listed column contains the specified substring for the row."""
     columns = computed_source_columns(spec)
     substring = spec.get("substring")
+    case_sense_flag = spec.get("case_sense_flag", False)
 
     if not substring:
         raise ValueError("contains_substring requires a substring")
