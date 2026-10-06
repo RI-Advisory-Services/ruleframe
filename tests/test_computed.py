@@ -885,6 +885,30 @@ def test_contains_substring_returns_zero_for_blank_and_nonmatching_values() -> N
     assert result.tolist() == [0, 0, 0]
 
 
+def test_contains_substring_treats_regex_characters_literally() -> None:
+    df = pd.DataFrame({"Text": ["a.b", "axb", "a.b.c"]})
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Text"],
+        "substring": "a.b",
+        "id": "result",
+        "case_sense_flag": False,
+    }
+
+    result = compute_column(df, spec)
+
+    assert result.tolist() == [1, 0, 1]
+
+
+def test_contains_substring_defaults_to_case_insensitive() -> None:
+    df = pd.DataFrame({"Text": ["APPLE", "apple", "Orange"]})
+    spec = {"type": "contains_substring", "columns": ["Text"], "substring": "Apple", "id": "result"}
+
+    result = compute_column(df, spec)
+
+    assert result.tolist() == [1, 1, 0]
+
+
 # ===========================================================================
 # Fixture-driven integration tests (YAML rules + CSV data)
 # ===========================================================================
