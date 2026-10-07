@@ -3,6 +3,7 @@ import datetime
 import pandas as pd
 import pytest
 
+from ruleframe.bundle import RuleBundle
 import ruleframe.computed as computed_module
 from ruleframe import validate_dataframe
 from ruleframe.computed import (
@@ -171,8 +172,20 @@ def test_divide_returns_nan_for_zero_denominator() -> None:
 
 def test_divide_requires_exactly_two_columns() -> None:
     df = pd.DataFrame({"A": [1.0], "B": [2.0], "C": [3.0]})
-    with pytest.raises(ValueError, match="exactly 2"):
-        compute_column(df, {"type": "divide", "columns": ["A", "B", "C"], "id": "r"})
+    bundle = RuleBundle.from_json_dict(
+        {
+            "computed_columns": [
+                {
+                    "type": "divide",
+                    "columns": ["A", "B", "C"],
+                    "id": "r",
+                }
+            ],
+            "rules": [],
+        }
+    )
+    with pytest.raises(BundleValidationError, match="exactly 2"):
+        validate_dataframe(df, bundle)
 
 
 # ---------------------------------------------------------------------------

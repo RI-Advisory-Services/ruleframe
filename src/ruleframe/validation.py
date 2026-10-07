@@ -26,12 +26,28 @@ from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
 
 
+def _validate_bundle_role_conflicts(
+    bundle: RuleBundle,
+) -> tuple[dict[str, str], set[str]]:
+    """Validate type and date-role signals that depend only on the bundle."""
+    column_types = infer_column_types(bundle.rules, bundle.computed_columns)
+    date_cols = _infer_date_columns(bundle)
+
+    overlap = date_cols & set(column_types)
+    if overlap:
+        raise BundleValidationError(
+            f"Column(s) {sorted(overlap)} are used with both date predicates and "
+            f"numeric/string predicates. A column cannot serve two roles."
+        )
+
+    return column_types, date_cols
+
+
 def validate_inputs(df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True):
-    """Validates computed column specs (structural checks, cycles, duplicates),
-    Checks for column name collisions between input and computed columns,
-    and Checks for missing required columns"""
+    """Validate bundle structure and input schema before rule evaluation."""
 
     validate_computed_column_specs(bundle.computed_columns)
+    _validate_bundle_role_conflicts(bundle)
 
     collisions = computed_column_name_collisions(df, bundle)
     if collisions:
@@ -87,17 +103,8 @@ def _execute_rule_bundle(
     Compiles rules to JsonLogic and evaluates row-by-row"""
 
     # --- Type inference and coercion ---
-    column_types = infer_column_types(bundle.rules, bundle.computed_columns)
-
-    # --- Cross-check: date columns must not also have numeric/string signals ---
+    column_types, date_cols = _validate_bundle_role_conflicts(bundle)
     date_fmt = _date_format(bundle)
-    date_cols = _infer_date_columns(bundle)
-    overlap = date_cols & set(column_types.keys())
-    if overlap:
-        raise BundleValidationError(
-            f"Column(s) {sorted(overlap)} are used with both date predicates and "
-            f"numeric/string predicates. A column cannot serve two roles."
-        )
 
     # --- Cross-check: input column values must match inferred column roles ---
     _validate_input_column_types(df, column_types, date_cols)
