@@ -12,6 +12,8 @@ returns structured results.
   `greater_than_column`, and date comparisons.
 - [Computed columns](computed-columns.md): generated columns that can be used by later computed
   columns or validation rules.
+- [Operations library](operations-library.md): the complete reference for predicates and
+  computed-column operations.
 - [Validation results](validation-results.md): `ValidationResult`, findings, annotated output,
   summary output, and coercion details.
 

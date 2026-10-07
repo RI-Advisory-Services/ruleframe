@@ -58,6 +58,15 @@ Computed columns are generated on a working copy. The original input DataFrame i
 | `round` | `column`, `decimals` | Round a column to `decimals` decimal places. Use negative `decimals` to round to tens, hundreds, etc. |
 | `alias` | `column` | Copy a column under a new name. Null values are preserved. |
 
+For `scale`, `add_constant`, and `round`, the source column is inferred as numeric and coerced on
+RuleFrame's working copy before the operation runs. Values that cannot be parsed become blank
+according to the normal numeric-coercion rules. `scale` and `add_constant` require numeric
+`scalar` and `constant` values, respectively; `round` requires an integer `decimals` value.
+
+All four operations accept a source column named by `column`, and their output name is determined
+by `name` when present, otherwise `id`. They can reference an input column or a computed column
+declared earlier in the list. A source column that is missing raises `InputSchemaError`.
+
 ## Row-Level Arithmetic
 
 ```yaml
@@ -241,7 +250,9 @@ negative value to subtract). Both propagate blank values as blank.
 `round` rounds to the given number of decimal places. Pass a negative `decimals` value to round
 to the nearest ten, hundred, etc. (`decimals: -1` rounds to the nearest 10).
 
-`alias` copies a column under a new name without transforming any values.
+`alias` copies a column under a new name without transforming or coercing any values. It preserves
+nulls, empty strings, whitespace, and the source column's values as-is. Unlike the numeric
+operations above, `alias` does not require a numeric source column.
 
 ## Validation Rules
 

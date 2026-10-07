@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
@@ -39,6 +40,8 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
        that has not been declared earlier in the list.
     4. Cycles: a chain of dependencies that loops back to an earlier column
        (detected via DFS on the dependency graph).
+    5. Correct data type: each computed column should only accept valid input types for its
+       operation.
     """
     generated_so_far: set[str] = set()
     # Build full dependency graph for cycle detection (name -> set of generated deps)
@@ -68,11 +71,11 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
         generated_deps = inputs & all_names
         deps[name] = generated_deps
 
-        # 1. Self-reference
+        # 2. Self-reference
         if name in inputs:
             raise BundleValidationError(f"Computed column {name!r} references itself as an input.")
 
-        # 2. Out-of-order: any generated dep not yet produced by a prior spec
+        # 3. Out-of-order: any generated dep not yet produced by a prior spec
         out_of_order = generated_deps - generated_so_far
         if out_of_order:
             missing_names = ", ".join(sorted(out_of_order))
@@ -83,7 +86,7 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
 
         generated_so_far.add(name)
 
-    # 3. Cycle detection via DFS (can only occur across specs, self-reference caught above)
+    # 4. Cycle detection via DFS (can only occur across specs, self-reference caught above)
     def _has_cycle(node: str, visiting: set[str], visited: set[str]) -> bool:
         visiting.add(node)
         for dep in deps.get(node, set()):
@@ -102,6 +105,81 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
                 raise BundleValidationError(
                     f"Computed columns contain a dependency cycle involving {name!r}."
                 )
+    # 5. Correct data type: each computed column should only accept valid input types for
+    # its operation.
+    for spec in specs:
+        column_type = spec.get("type")
+        if column_type == "round":
+            column = spec.get("column")
+            decimals = spec.get("decimals")
+            if not isinstance(column, str):
+                raise BundleValidationError("round requires string 'column' key")
+            if not isinstance(decimals, int):
+                raise BundleValidationError("round requires an integer 'decimals' key")
+        if column_type == "divide":
+            columns = computed_source_columns(spec)
+            if len(columns) != 2:
+                raise BundleValidationError("divide requires exactly 2 columns")
+        if column_type == "scale":
+            column = spec.get("column")
+            scalar = spec.get("scalar")
+            if not isinstance(column, str):
+                raise BundleValidationError("scale requires string 'column' key")
+            if not isinstance(scalar, (int, float)):
+                raise BundleValidationError("scale requires a numeric 'scalar' key")
+        if column_type == "add_constant":
+            column = spec.get("column")
+            constant = spec.get("constant")
+            if not isinstance(column, str):
+                raise BundleValidationError("add_constant requires string 'column' key")
+            if not isinstance(constant, (int, float)):
+                raise BundleValidationError("add_constant requires a numeric 'constant' key")
+        if column_type == "alias":
+            column = spec.get("column")
+            if not isinstance(column, str):
+                raise BundleValidationError("alias requires string 'column' key")
+        if column_type == "group_sum":
+            group_by: str | None = spec.get("group_by")
+            value_column: str | None = spec.get("value_column")
+            filter_spec: dict[str, Any] | None = spec.get("filter")
+            if not group_by or not value_column:
+                raise BundleValidationError("group_sum requires group_by and value_column")
+            if filter_spec is not None and not isinstance(filter_spec, Mapping):
+                raise BundleValidationError("group_sum 'filter' must be a mapping when provided")
+            if filter_spec is not None and not isinstance(filter_spec["column"], str):
+                raise BundleValidationError("group_sum requires 'filter.column' to be a string")
+            if filter_spec is not None and set(filter_spec.keys()) != {"column", "equals"}:
+                raise BundleValidationError(
+                    "group_sum requires 'filter' to contain exactly the fields: 'column'"
+                    " and 'equals'"
+                )
+        if column_type == "group_count":
+            group_by: str | None = spec.get("group_by")
+            filter_spec: dict[str, Any] | None = spec.get("filter")
+            if not group_by:
+                raise BundleValidationError("group_count requires group_by")
+            if filter_spec is not None and not isinstance(filter_spec, Mapping):
+                raise BundleValidationError("group_count 'filter' must be a mapping when provided")
+            if filter_spec is not None and not isinstance(filter_spec["column"], str):
+                raise BundleValidationError("group_count requires 'filter.column' to be a string")
+            if filter_spec is not None and set(filter_spec.keys()) != {"column", "equals"}:
+                raise BundleValidationError(
+                    "group_count requires 'filter' to contain exactly the fields: 'column' "
+                    "and 'equals'"
+                )
+        if column_type == "date_diff":
+            start_col: str | None = spec.get("start_column")
+            end_col: str | None = spec.get("end_column")
+            if not start_col or not end_col:
+                raise BundleValidationError("date_diff requires start_column and end_column")
+        if column_type == "days_since_today":
+            column: str | None = spec.get("column")
+            if not column:
+                raise BundleValidationError("days_since_today requires column")
+        if column_type == "years_since_year":
+            column: str | None = spec.get("column")
+            if not column:
+                raise BundleValidationError("years_since_year requires column")
 
 
 def apply_computed_columns(df: pd.DataFrame, specs: list[dict[str, Any]]) -> pd.DataFrame:
@@ -114,27 +192,36 @@ def apply_computed_columns(df: pd.DataFrame, specs: list[dict[str, Any]]) -> pd.
     return computed
 
 
+def _normalize_integral_result(result: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(result, errors="coerce")
+
+    non_null = numeric.dropna()
+    if not non_null.empty and (non_null % 1 == 0).all():
+        return numeric.astype("Int64")
+
+    return result
+
+
 def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     column_type = spec.get("type")
     if column_type == "sum":
         columns = computed_source_columns(spec)
-        return pd.Series(df[columns].sum(axis=1, min_count=1), index=df.index)
+        result = pd.Series(df[columns].sum(axis=1, min_count=1), index=df.index)
+        return _normalize_integral_result(result)
     if column_type == "subtract":
         columns = computed_source_columns(spec)
-        result: pd.Series = df[columns[0]].copy()
+        sub_result: pd.Series = df[columns[0]].copy()
         for i in range(1, len(columns)):
-            result = result - df[columns[i]]
-        return result
+            sub_result = sub_result - df[columns[i]]
+        return _normalize_integral_result(sub_result)
     if column_type == "multiply":
         columns = computed_source_columns(spec)
         mul_result: pd.Series = df[columns[0]].copy()
         for i in range(1, len(columns)):
             mul_result = mul_result * df[columns[i]]
-        return mul_result
+        return _normalize_integral_result(mul_result)
     if column_type == "divide":
         columns = computed_source_columns(spec)
-        if len(columns) != 2:
-            raise ValueError("divide requires exactly 2 columns")
         numerator = df[columns[0]]
         denominator = df[columns[1]]
         return numerator / denominator.where(denominator != 0)
@@ -142,7 +229,8 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
         columns = computed_source_columns(spec)
         return df[columns].bfill(axis=1).iloc[:, 0]
     if column_type == "group_sum":
-        return _compute_group_sum(df, spec)
+        result = _compute_group_sum(df, spec)
+        return _normalize_integral_result(result)
     if column_type == "group_count":
         return _compute_group_count(df, spec)
     if column_type == "date_diff":
@@ -156,31 +244,19 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if column_type == "scale":
         column = spec.get("column")
         scalar = spec.get("scalar")
-        if not isinstance(column, str):
-            raise ValueError("scale requires string 'column' key")
-        if scalar is None:
-            raise ValueError("scale requires a numeric 'scalar' key")
-        return pd.Series(df[column] * scalar, index=df.index)
+        result = pd.Series(df[column] * scalar, index=df.index)
+        return _normalize_integral_result(result)
     if column_type == "add_constant":
         column = spec.get("column")
         constant = spec.get("constant")
-        if not isinstance(column, str):
-            raise ValueError("add_constant requires string 'column' key")
-        if constant is None:
-            raise ValueError("add_constant requires a numeric 'constant' key")
-        return pd.Series(df[column] + constant, index=df.index)
+        result = pd.Series(df[column] + constant, index=df.index)
+        return _normalize_integral_result(result)
     if column_type == "round":
         column = spec.get("column")
         decimals = spec.get("decimals")
-        if not isinstance(column, str):
-            raise ValueError("round requires string 'column' key")
-        if not isinstance(decimals, int):
-            raise ValueError("round requires an integer 'decimals' key")
         return pd.Series(df[column].round(decimals), index=df.index)
     if column_type == "alias":
         column = spec.get("column")
-        if not isinstance(column, str):
-            raise ValueError("alias requires string 'column' key")
         return df[column].copy()
     raise BundleValidationError(f"Unsupported computed column type: {column_type}")
 
@@ -188,9 +264,6 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
 def _compute_group_sum(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     group_by: str | None = spec.get("group_by")
     value_column: str | None = spec.get("value_column")
-    if not group_by or not value_column:
-        raise ValueError("group_sum requires group_by and value_column")
-
     values = df[value_column]
     filter_spec: dict[str, Any] | None = spec.get("filter")
     if filter_spec:
@@ -204,9 +277,6 @@ def _compute_group_sum(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
 
 def _compute_group_count(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     group_by: str | None = spec.get("group_by")
-    if not group_by:
-        raise ValueError("group_count requires group_by")
-
     filter_spec: dict[str, Any] | None = spec.get("filter")
     if filter_spec:
         mask: pd.Series = df[filter_spec["column"]] == filter_spec["equals"]
@@ -222,8 +292,6 @@ def _compute_date_diff(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     """Return (end_column - start_column) in whole days."""
     start_col: str | None = spec.get("start_column")
     end_col: str | None = spec.get("end_column")
-    if not start_col or not end_col:
-        raise ValueError("date_diff requires start_column and end_column")
 
     start_dt = normalize_date_series(df[start_col])
     end_dt = normalize_date_series(df[end_col])
@@ -238,9 +306,6 @@ def _compute_days_since_today(
 ) -> pd.Series:
     """Return (today - column) in whole days."""
     column: str | None = spec.get("column")
-    if not column:
-        raise ValueError("days_since_today requires column")
-
     reference = pd.Timestamp(*(today or datetime.date.today()).timetuple()[:3])
     col_dt = normalize_date_series(df[column])
     delta = (reference - col_dt).dt.days
@@ -254,8 +319,6 @@ def _compute_years_since_year(
 ) -> pd.Series:
     """Return (current_year - year_column) as an integer number of years."""
     column: str | None = spec.get("column")
-    if not column:
-        raise ValueError("years_since_year requires column")
 
     year = current_year if current_year is not None else datetime.date.today().year
     col_values = df[column].astype("Float64").round(0)
@@ -283,19 +346,19 @@ def _compute_all_blank_or_zero(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Ser
     return all_blank_or_zero.astype(int)
 
 
-def computed_column_name(spec: dict[str, Any]) -> str:
+def computed_column_name(spec: dict[str, Any]):
     name = spec.get("name") or spec.get("id")
     if not name:
-        raise ValueError("Computed columns must define a name or id")
-    return str(name)
+        raise BundleValidationError("Computed columns must define a name or id")
+    return name
 
 
 def computed_source_columns(spec: dict[str, Any]) -> list[str]:
     """Return the ``columns`` list for arithmetic/coalesce types."""
     columns = spec.get("columns")
     if not isinstance(columns, list) or not columns:
-        raise ValueError("Computed columns must define a non-empty columns list")
-    return [str(column) for column in columns]
+        raise BundleValidationError("Computed columns must define a non-empty columns list")
+    return [column for column in columns]
 
 
 def required_input_columns(spec: dict[str, Any]) -> set[str]:
@@ -306,41 +369,41 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
     if column_type == "group_sum":
         refs: set[str] = set()
         if group_by := spec.get("group_by"):
-            refs.add(str(group_by))
+            refs.add(group_by)
         if value_column := spec.get("value_column"):
-            refs.add(str(value_column))
+            refs.add(value_column)
         if filter_spec := spec.get("filter"):
             if col := filter_spec.get("column"):
-                refs.add(str(col))
+                refs.add(col)
         return refs
     if column_type == "group_count":
         refs = set()
         if group_by := spec.get("group_by"):
-            refs.add(str(group_by))
+            refs.add(group_by)
         if filter_spec := spec.get("filter"):
             if col := filter_spec.get("column"):
-                refs.add(str(col))
+                refs.add(col)
         return refs
     if column_type == "date_diff":
         refs = set()
         if start_col := spec.get("start_column"):
-            refs.add(str(start_col))
+            refs.add(start_col)
         if end_col := spec.get("end_column"):
-            refs.add(str(end_col))
+            refs.add(end_col)
         return refs
     if column_type == "days_since_today":
         if col := spec.get("column"):
-            return {str(col)}
+            return {col}
         return set()
     if column_type == "years_since_year":
         if col := spec.get("column"):
-            return {str(col)}
+            return {col}
         return set()
     if column_type == "all_blank_or_zero":
         return set(computed_source_columns(spec))
     if column_type in {"scale", "add_constant", "round", "alias"}:
         if col := spec.get("column"):
-            return {str(col)}
+            return {col}
         return set()
     return set()
 

@@ -633,7 +633,8 @@ computed_columns:
 ### `round`
 
 Rounds each value in a column to the given number of decimal places. Pass a negative `decimals`
-value to round to the nearest ten, hundred, etc.
+value to round to the nearest ten, hundred, etc. The `decimals` input must be
+an integer. Pass a negative `decimals` value to round to the nearest ten, hundred, etc.
 
 ```yaml
 computed_columns:
@@ -668,3 +669,13 @@ computed_columns:
 
 `alias` is useful when a downstream rule or a second computed column needs to reference the same
 data under a different name.
+
+### Single-column operation rules
+
+All four operations use `column` to identify one source column. The generated column name is
+`name` when present, otherwise `id`. The source may be an input column or a computed column
+declared earlier in `computed_columns`; a missing source column raises `InputSchemaError`.
+
+`scale` requires `scalar`, `add_constant` requires `constant`, and `round` requires `decimals`.
+Invalid or missing operation parameters raise a validation error rather than silently producing a
+result.

@@ -26,12 +26,28 @@ from .predicates import PREDICATE_REGISTRY
 from .result import Finding, ValidationResult
 
 
-def validate_dataframe(
-    df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
-) -> ValidationResult:
-    """Validate a DataFrame by compiling friendly rules to JsonLogic."""
+def _validate_bundle_role_conflicts(
+    bundle: RuleBundle,
+) -> tuple[dict[str, str], set[str]]:
+    """Validate type and date-role signals that depend only on the bundle."""
+    column_types = infer_column_types(bundle.rules, bundle.computed_columns)
+    date_cols = _infer_date_columns(bundle)
+
+    overlap = date_cols & set(column_types)
+    if overlap:
+        raise BundleValidationError(
+            f"Column(s) {sorted(overlap)} are used with both date predicates and "
+            f"numeric/string predicates. A column cannot serve two roles."
+        )
+
+    return column_types, date_cols
+
+
+def validate_inputs(df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True):
+    """Validate bundle structure and input schema before rule evaluation."""
 
     validate_computed_column_specs(bundle.computed_columns)
+    _validate_bundle_role_conflicts(bundle)
 
     collisions = computed_column_name_collisions(df, bundle)
     if collisions:
@@ -44,18 +60,54 @@ def validate_dataframe(
     if missing:
         raise InputSchemaError("Input is missing required rule column(s): " + ", ".join(missing))
 
-    # --- Type inference and coercion ---
-    column_types = infer_column_types(bundle.rules, bundle.computed_columns)
+    return None
 
-    # --- Cross-check: date columns must not also have numeric/string signals ---
+
+def _validate_input_column_types(
+    df: pd.DataFrame, column_types: dict[str, str], date_cols: set[str]
+) -> None:
+    expected_types = dict(column_types)
+    expected_types.update({col: "date" for col in date_cols})
+
+    errors: list[str] = []
+
+    for col, expected_type in sorted(expected_types.items()):
+        if col not in df.columns:
+            continue
+
+        series = df[col].dropna()
+        if series.empty:
+            continue
+
+        elif expected_type == "string":
+            invalid = series.map(lambda value: not isinstance(value, str))
+            if invalid.any():
+                errors.append(f"Column {col!r} is used as string but contains non-string values")
+
+        elif expected_type == "boolean":
+            invalid = series.map(lambda value: not isinstance(value, bool))
+            if invalid.any():
+                errors.append(f"Column {col!r} is used as boolean but contains non-boolean values")
+
+    if errors:
+        raise InputSchemaError("; ".join(errors))
+
+
+def _execute_rule_bundle(
+    df: pd.DataFrame, bundle: RuleBundle, *, warn: bool = True
+) -> ValidationResult:
+    """Validate a DataFrame by compiling friendly rules to JsonLogic,
+    Infers column types and applies numeric coercion,
+    Normalizes date columns,
+    Generates computed columns,
+    Compiles rules to JsonLogic and evaluates row-by-row"""
+
+    # --- Type inference and coercion ---
+    column_types, date_cols = _validate_bundle_role_conflicts(bundle)
     date_fmt = _date_format(bundle)
-    date_cols = _infer_date_columns(bundle)
-    overlap = date_cols & set(column_types.keys())
-    if overlap:
-        raise BundleValidationError(
-            f"Column(s) {sorted(overlap)} are used with both date predicates and "
-            f"numeric/string predicates. A column cannot serve two roles."
-        )
+
+    # --- Cross-check: input column values must match inferred column roles ---
+    _validate_input_column_types(df, column_types, date_cols)
 
     working_df, coercion_log = apply_numeric_coercion(df, column_types, warn=warn)
 
@@ -112,6 +164,11 @@ def validate_dataframe(
         working_dataframe=working_df,
         coercion_log=coercion_log,
     )
+
+
+def validate_dataframe(df, bundle, warn: bool = True):
+    validate_inputs(df, bundle)
+    return _execute_rule_bundle(df, bundle, warn=warn)
 
 
 def missing_rule_columns(df: pd.DataFrame, bundle: RuleBundle) -> list[str]:
