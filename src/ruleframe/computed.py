@@ -171,6 +171,8 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
             group_count_filter_spec: dict[str, Any] | None = spec.get("filter")
             if not group_count_group_by:
                 raise BundleValidationError("group_count requires group_by")
+            if not isinstance(group_count_group_by, str):
+                raise BundleValidationError("group_count 'group_by' must be a string")
             if group_count_filter_spec is not None and not isinstance(
                 group_count_filter_spec, Mapping
             ):
