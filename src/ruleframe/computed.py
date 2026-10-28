@@ -110,76 +110,106 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
     for spec in specs:
         column_type = spec.get("type")
         if column_type == "round":
-            column = spec.get("column")
+            round_column = spec.get("column")
             decimals = spec.get("decimals")
-            if not isinstance(column, str):
+            if not isinstance(round_column, str):
                 raise BundleValidationError("round requires string 'column' key")
             if not isinstance(decimals, int):
                 raise BundleValidationError("round requires an integer 'decimals' key")
         if column_type == "divide":
-            columns = computed_source_columns(spec)
-            if len(columns) != 2:
+            divide_columns = computed_source_columns(spec)
+            if len(divide_columns) != 2:
                 raise BundleValidationError("divide requires exactly 2 columns")
         if column_type == "scale":
-            column = spec.get("column")
-            scalar = spec.get("scalar")
-            if not isinstance(column, str):
+            scale_column = spec.get("column")
+            scale_scalar = spec.get("scalar")
+            if not isinstance(scale_column, str):
                 raise BundleValidationError("scale requires string 'column' key")
-            if not isinstance(scalar, (int, float)):
+            if not isinstance(scale_scalar, (int, float)):
                 raise BundleValidationError("scale requires a numeric 'scalar' key")
         if column_type == "add_constant":
-            column = spec.get("column")
-            constant = spec.get("constant")
-            if not isinstance(column, str):
+            add_constant_column = spec.get("column")
+            add_constant_constant = spec.get("constant")
+            if not isinstance(add_constant_column, str):
                 raise BundleValidationError("add_constant requires string 'column' key")
-            if not isinstance(constant, (int, float)):
+            if not isinstance(add_constant_constant, (int, float)):
                 raise BundleValidationError("add_constant requires a numeric 'constant' key")
         if column_type == "alias":
-            column = spec.get("column")
-            if not isinstance(column, str):
+            alias_column = spec.get("column")
+            if not isinstance(alias_column, str):
                 raise BundleValidationError("alias requires string 'column' key")
         if column_type == "group_sum":
-            group_by: str | None = spec.get("group_by")
-            value_column: str | None = spec.get("value_column")
-            filter_spec: dict[str, Any] | None = spec.get("filter")
-            if not group_by or not value_column:
-                raise BundleValidationError("group_sum requires group_by and value_column")
-            if filter_spec is not None and not isinstance(filter_spec, Mapping):
+            group_sum_group_by: str | None = spec.get("group_by")
+            group_sum_value_column: str | None = spec.get("value_column")
+            group_sum_filter_spec = spec.get("filter")
+            if not group_sum_group_by:
+                raise BundleValidationError("group_sum requires group_by")
+            if not isinstance(group_sum_group_by, str):
+                raise BundleValidationError("group_sum 'group_by' must be a string")
+            if not group_sum_value_column:
+                raise BundleValidationError("group_sum requires value_column")
+            if not isinstance(group_sum_value_column, str):
+                raise BundleValidationError("group_sum 'value_column' must be a string")
+            if group_sum_filter_spec is not None and not isinstance(group_sum_filter_spec, Mapping):
                 raise BundleValidationError("group_sum 'filter' must be a mapping when provided")
-            if filter_spec is not None and not isinstance(filter_spec["column"], str):
+            if group_sum_filter_spec is not None and "column" not in group_sum_filter_spec:
+                raise BundleValidationError("group_sum requires 'filter.column'")
+            if group_sum_filter_spec is not None and not isinstance(
+                group_sum_filter_spec["column"], str
+            ):
                 raise BundleValidationError("group_sum requires 'filter.column' to be a string")
-            if filter_spec is not None and set(filter_spec.keys()) != {"column", "equals"}:
+            if group_sum_filter_spec is not None and set(group_sum_filter_spec.keys()) != {
+                "column",
+                "equals",
+            }:
                 raise BundleValidationError(
                     "group_sum requires 'filter' to contain exactly the fields: 'column'"
                     " and 'equals'"
                 )
         if column_type == "group_count":
-            group_by: str | None = spec.get("group_by")
-            filter_spec: dict[str, Any] | None = spec.get("filter")
-            if not group_by:
+            group_count_group_by: str | None = spec.get("group_by")
+            group_count_filter_spec: dict[str, Any] | None = spec.get("filter")
+            if not group_count_group_by:
                 raise BundleValidationError("group_count requires group_by")
-            if filter_spec is not None and not isinstance(filter_spec, Mapping):
+            if group_count_filter_spec is not None and not isinstance(
+                group_count_filter_spec, Mapping
+            ):
                 raise BundleValidationError("group_count 'filter' must be a mapping when provided")
-            if filter_spec is not None and not isinstance(filter_spec["column"], str):
+            if group_count_filter_spec is not None and "column" not in group_count_filter_spec:
+                raise BundleValidationError("group_count requires 'filter.column'")
+            if group_count_filter_spec is not None and not isinstance(
+                group_count_filter_spec["column"], str
+            ):
                 raise BundleValidationError("group_count requires 'filter.column' to be a string")
-            if filter_spec is not None and set(filter_spec.keys()) != {"column", "equals"}:
+            if group_count_filter_spec is not None and set(group_count_filter_spec.keys()) != {
+                "column",
+                "equals",
+            }:
                 raise BundleValidationError(
-                    "group_count requires 'filter' to contain exactly the fields: 'column' "
-                    "and 'equals'"
+                    "group_count requires 'filter' to contain exactly the fields: 'column' and"
+                    " 'equals'"
                 )
         if column_type == "date_diff":
-            start_col: str | None = spec.get("start_column")
-            end_col: str | None = spec.get("end_column")
-            if not start_col or not end_col:
+            date_diff_start_col: str | None = spec.get("start_column")
+            date_diff_end_col: str | None = spec.get("end_column")
+            if not date_diff_start_col or not date_diff_end_col:
                 raise BundleValidationError("date_diff requires start_column and end_column")
+            if not isinstance(date_diff_start_col, str):
+                raise BundleValidationError("date_diff 'start_column' must be a string")
+            if not isinstance(date_diff_end_col, str):
+                raise BundleValidationError("date_diff 'end_column' must be a string")
         if column_type == "days_since_today":
-            column: str | None = spec.get("column")
-            if not column:
+            days_since_today_column: str | None = spec.get("column")
+            if not days_since_today_column:
                 raise BundleValidationError("days_since_today requires column")
+            if not isinstance(days_since_today_column, str):
+                raise BundleValidationError("days_since_today 'column' must be a string")
         if column_type == "years_since_year":
-            column: str | None = spec.get("column")
-            if not column:
+            years_since_year_column: str | None = spec.get("column")
+            if not years_since_year_column:
                 raise BundleValidationError("years_since_year requires column")
+            if not isinstance(years_since_year_column, str):
+                raise BundleValidationError("years_since_year 'column' must be a string")
 
 
 def apply_computed_columns(df: pd.DataFrame, specs: list[dict[str, Any]]) -> pd.DataFrame:
@@ -242,23 +272,41 @@ def compute_column(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
     if column_type == "all_blank_or_zero":
         return _compute_all_blank_or_zero(df, spec)
     if column_type == "scale":
-        column = spec.get("column")
+        scale_column = spec.get("column")
         scalar = spec.get("scalar")
-        result = pd.Series(df[column] * scalar, index=df.index)
+
+        if not isinstance(scale_column, str):
+            raise BundleValidationError("scale requires string 'column' key")
+        if not isinstance(scalar, (int, float)):
+            raise BundleValidationError("scale requires a numeric 'scalar' key")
+
+        result = pd.Series(df[scale_column] * scalar, index=df.index)
         return _normalize_integral_result(result)
     if column_type == "add_constant":
-        column = spec.get("column")
-        constant = spec.get("constant")
-        result = pd.Series(df[column] + constant, index=df.index)
+        add_constant_column = spec.get("column")
+        add_constant_constant = spec.get("constant")
+
+        if not isinstance(add_constant_column, str):
+            raise BundleValidationError("add_constant requires string 'column' key")
+        if not isinstance(add_constant_constant, (int, float)):
+            raise BundleValidationError("add_constant requires a numeric 'constant' key")
+
+        result = pd.Series(df[add_constant_column] + add_constant_constant, index=df.index)
         return _normalize_integral_result(result)
     if column_type == "round":
-        column = spec.get("column")
-        decimals = spec.get("decimals")
-        return pd.Series(df[column].round(decimals), index=df.index)
+        round_column = spec.get("column")
+        round_decimals = spec.get("decimals")
+
+        if not isinstance(round_column, str):
+            raise BundleValidationError("round requires string 'column' key")
+        if not isinstance(round_decimals, int):
+            raise BundleValidationError("round requires an integer 'decimals' key")
+
+        return pd.Series(df[round_column].round(round_decimals), index=df.index)
     if column_type == "alias":
         column = spec.get("column")
         return df[column].copy()
-    raise BundleValidationError(f"Unsupported computed column type: {column_type}")
+    raise BundleValidationError("Unsupported computed column type: {column_type}")
 
 
 def _compute_group_sum(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Series:
@@ -358,6 +406,8 @@ def computed_source_columns(spec: dict[str, Any]) -> list[str]:
     columns = spec.get("columns")
     if not isinstance(columns, list) or not columns:
         raise BundleValidationError("Computed columns must define a non-empty columns list")
+    if not all(isinstance(column, str) for column in columns):
+        raise BundleValidationError("Computed columns 'columns' list must contain only strings")
     return [column for column in columns]
 
 

@@ -167,7 +167,7 @@ def _execute_rule_bundle(
 
 
 def validate_dataframe(df, bundle, warn: bool = True):
-    validate_inputs(df, bundle)
+    validate_inputs(df, bundle, warn=warn)
     return _execute_rule_bundle(df, bundle, warn=warn)
 
 
