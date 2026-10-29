@@ -6,7 +6,7 @@ from .bundle import RuleBundle
 from .coercion import CoercionEvent
 from .exceptions import BundleValidationError, InputSchemaError, RuleFrameError
 from .result import ValidationResult
-from .validation import validate_dataframe
+from .validation import validate_dataframe, validate_inputs
 
 __version__ = version("ruleframe")
 
@@ -19,4 +19,5 @@ __all__ = [
     "ValidationResult",
     "__version__",
     "validate_dataframe",
+    "validate_inputs",
 ]

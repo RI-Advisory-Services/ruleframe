@@ -42,9 +42,14 @@ class TestInferColumnTypesFromPredicates:
         assert result["B"] == "numeric"
 
     def test_equals_with_int_implies_numeric(self) -> None:
-        rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1}}]
+        rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1.2}}]
         result = infer_column_types(rules, [])
         assert result["Status"] == "numeric"
+
+    def test_equals_with_int_implies_integer(self) -> None:
+        rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": 1}}]
+        result = infer_column_types(rules, [])
+        assert result["Status"] == "integer"
 
     def test_equals_with_bool_implies_boolean(self) -> None:
         # bool is a subclass of int in Python — must not be misidentified as numeric
@@ -70,7 +75,7 @@ class TestInferColumnTypesFromPredicates:
         ]
         result = infer_column_types(rules, [])
         assert result["BoolCol"] == "boolean"
-        assert result["IntCol"] == "numeric"
+        assert result["IntCol"] == "integer"
 
     def test_equals_with_string_implies_string(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "equals": "Active"}}]
@@ -83,9 +88,14 @@ class TestInferColumnTypesFromPredicates:
         assert result["Type"] == "string"
 
     def test_in_all_numeric_implies_numeric(self) -> None:
-        rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1, 2, 3]}}]
+        rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1.2, 2.2, 3.2]}}]
         result = infer_column_types(rules, [])
         assert result["Code"] == "numeric"
+
+    def test_in_all_integers_implies_integer(self) -> None:
+        rules = [{"id": "r1", "fail_when": {"column": "Code", "in": [1, 2, 3]}}]
+        result = infer_column_types(rules, [])
+        assert result["Code"] == "integer"
 
     def test_in_all_strings_implies_string(self) -> None:
         rules = [{"id": "r1", "fail_when": {"column": "Status", "in": ["A", "B", "C"]}}]
@@ -268,6 +278,23 @@ class TestApplyNumericCoercion:
         assert log[0].input_dtype == "object"
         assert log[0].coercion_failures == 0
 
+    def test_integer_input_rejects_fractional_values(self) -> None:
+        df = pd.DataFrame({"Count": ["1", "2.5", "3"]})
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            working, log = apply_numeric_coercion(
+                df,
+                {"Count": "integer"},
+                warn=True,
+            )
+
+        assert working["Count"].tolist() == [1, pd.NA, 3]
+        assert str(working["Count"].dtype) == "Int64"
+        assert log[0].coercion_failures == 1
+        assert len(caught) == 1
+        assert "integer" in str(caught[0].message)
+
     def test_input_dtype_reflects_already_numeric_column(self) -> None:
         df = pd.DataFrame({"A": [1, 2, 3]})  # int64, already numeric
         column_types = {"A": "numeric"}
@@ -315,13 +342,184 @@ class TestApplyNumericCoercion:
         working, log = apply_numeric_coercion(df, column_types)
         assert len(log) == 0  # column not in df, not logged
 
+    def test_integer_and_numeric_inputs_are_processed_with_correct_types(self) -> None:
+        df = pd.DataFrame(
+            {
+                "Count": ["1", "2", "3"],
+                "Amount": ["1.25", "2.5", "3.75"],
+            }
+        )
+        column_types = {"Count": "integer", "Amount": "numeric"}
+
+        working, log = apply_numeric_coercion(df, column_types)
+
+        assert working["Count"].tolist() == [1, 2, 3]
+        assert str(working["Count"].dtype) == "Int64"
+        assert pd.api.types.is_integer_dtype(working["Count"])
+
+        assert working["Amount"].tolist() == [1.25, 2.5, 3.75]
+        assert pd.api.types.is_numeric_dtype(working["Amount"])
+        assert not pd.api.types.is_integer_dtype(working["Amount"])
+
+        assert {event.column for event in log} == {"Count", "Amount"}
+        assert all(event.coercion_failures == 0 for event in log)
+
 
 # ---------------------------------------------------------------------------
-# Integration: validate_dataframe with coercion
+# Integration: validate with coercion
 # ---------------------------------------------------------------------------
 
 
 class TestValidateDataframeCoercion:
+    @pytest.mark.parametrize(
+        ("condition", "column", "values"),
+        [
+            (
+                {"equals": "missing"},
+                "Status",
+                ["active", "inactive"],
+            ),
+            (
+                {"in": ["missing"]},
+                "Status",
+                ["active", "inactive"],
+            ),
+        ],
+    )
+    def test_string_columns_accept_only_strings(
+        self, condition: dict[str, object], column: str, values: list[object]
+    ) -> None:
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "status_check",
+                        "fail_when": {"column": column, **condition},
+                        "message": "invalid status",
+                    }
+                ]
+            }
+        )
+
+        result = validate_dataframe(pd.DataFrame({column: values}), bundle)
+
+        assert result.findings == []
+        assert result.working_dataframe[column].tolist() == values
+        assert result.coercion_log == []
+
+    def test_string_columns_reject_non_strings(self) -> None:
+        df = pd.DataFrame({"Status": ["active", 1, None]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "status_check",
+                        "fail_when": {"column": "Status", "equals": "active"},
+                    }
+                ]
+            }
+        )
+
+        with pytest.raises(InputSchemaError, match="used as string"):
+            validate_dataframe(df, bundle)
+
+    def test_boolean_columns_accept_booleans_and_preserve_values(self) -> None:
+        df = pd.DataFrame({"Enabled": [True, False, None]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "enabled_check",
+                        "fail_when": {"column": "Enabled", "equals": True},
+                    }
+                ]
+            }
+        )
+
+        result = validate_dataframe(df, bundle)
+
+        assert [finding.row_index for finding in result.findings] == [0]
+        assert result.working_dataframe["Enabled"].tolist() == [True, False, None]
+        assert result.coercion_log == []
+
+    @pytest.mark.parametrize("invalid_value", [1, 0, "true", "false"])
+    def test_boolean_columns_reject_non_booleans(self, invalid_value: object) -> None:
+        df = pd.DataFrame({"Enabled": [True, invalid_value]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "enabled_check",
+                        "fail_when": {"column": "Enabled", "equals": True},
+                    }
+                ]
+            }
+        )
+
+        with pytest.raises(InputSchemaError, match="used as boolean"):
+            validate_dataframe(df, bundle)
+
+    def test_integer_columns_reject_fractional_values_but_keep_integral_values(self) -> None:
+        df = pd.DataFrame({"Count": ["1", "2", "3"]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "count_check",
+                        "fail_when": {"column": "Count", "equals": 2},
+                    }
+                ]
+            }
+        )
+
+        result = validate_dataframe(df, bundle)
+
+        assert result.working_dataframe["Count"].tolist() == [1, 2, 3]
+        assert str(result.working_dataframe["Count"].dtype) == "Int64"
+        assert result.coercion_log[0].target_type == "integer"
+
+    def test_integer_columns_report_fractional_values_as_coercion_failures(self) -> None:
+        df = pd.DataFrame({"Count": ["1", "2.5", "3"]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "count_check",
+                        "fail_when": {"column": "Count", "equals": 2},
+                    }
+                ]
+            }
+        )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = validate_dataframe(df, bundle)
+
+        assert len(caught) == 1
+        assert result.working_dataframe["Count"].tolist() == [1, pd.NA, 3]
+        assert result.coercion_log[0].coercion_failures == 1
+
+    def test_integer_columns_reject_boolean_values(self) -> None:
+        df = pd.DataFrame({"Count": ["1", True, "3"]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "count_check",
+                        "fail_when": {"column": "Count", "equals": 2},
+                    }
+                ]
+            }
+        )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = validate_dataframe(df, bundle)
+
+        assert len(caught) == 1
+        assert result.working_dataframe["Count"].tolist() == [1, pd.NA, 3]
+        assert result.coercion_log[0].coercion_failures == 1
+
     def test_numeric_columns_auto_coerced_from_strings(self) -> None:
         """String numeric values are coerced before rule evaluation."""
         df = pd.DataFrame({"Amount": ["150", "50", "200"]})
@@ -402,6 +600,56 @@ class TestValidateDataframeCoercion:
         # Boolean column not in coercion log (boolean signal, no numeric coercion)
         assert not any(e.column == "Inspected" for e in result.coercion_log)
 
+    def test_date_columns_are_normalized_before_evaluation(self) -> None:
+        df = pd.DataFrame(
+            {
+                "EventDate": ["2024-01-15T12:30:00", "2024-02-01", None],
+            }
+        )
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "date_check",
+                        "fail_when": {
+                            "column": "EventDate",
+                            "date_equals": "2024-01-15",
+                        },
+                    }
+                ]
+            }
+        )
+
+        result = validate_dataframe(df, bundle)
+
+        assert [finding.row_index for finding in result.findings] == [0]
+        assert pd.api.types.is_datetime64_dtype(result.working_dataframe["EventDate"])
+        assert result.working_dataframe["EventDate"].iloc[0] == pd.Timestamp("2024-01-15")
+        assert result.working_dataframe["EventDate"].iloc[1] == pd.Timestamp("2024-02-01")
+        assert pd.isna(result.working_dataframe["EventDate"].iloc[2])
+        assert result.coercion_log == []
+
+    def test_date_columns_convert_unparseable_values_to_nat(self) -> None:
+        df = pd.DataFrame({"EventDate": ["not-a-date", "2024-02-01"]})
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "date_check",
+                        "fail_when": {
+                            "column": "EventDate",
+                            "date_equals": "2024-02-01",
+                        },
+                    }
+                ]
+            }
+        )
+
+        result = validate_dataframe(df, bundle)
+
+        assert pd.isna(result.working_dataframe["EventDate"].iloc[0])
+        assert result.working_dataframe["EventDate"].iloc[1] == pd.Timestamp("2024-02-01")
+
     def test_date_column_used_as_numeric_raises(self) -> None:
         """A column used with both date predicates and numeric predicates raises."""
         df = pd.DataFrame({"EventDate": ["2024-01-01", "2024-06-01"]})
@@ -462,7 +710,7 @@ class TestValidateDataframeCoercion:
             validate_dataframe(df, bundle)
 
     def test_warn_false_suppresses_coercion_warnings(self) -> None:
-        df = pd.DataFrame({"Score": ["10", "bad", "30"]})
+        df = pd.DataFrame({"Score": ["10.1", "bad", "30.2"]})
         bundle = RuleBundle.from_json_dict(
             {
                 "rules": [
@@ -499,3 +747,38 @@ class TestValidateDataframeCoercion:
         # Total for row 1: 20+5=25 > 20
         assert len(result.findings) == 1
         assert result.findings[0].row_index == 1
+
+    def test_integer_and_numeric_rule_inputs_are_evaluated_correctly(self) -> None:
+        df = pd.DataFrame(
+            {
+                "Count": ["1", "3", "5"],
+                "Amount": ["1.25", "10.5", "20.75"],
+            }
+        )
+        bundle = RuleBundle.from_json_dict(
+            {
+                "rules": [
+                    {
+                        "id": "large_count",
+                        "fail_when": {"column": "Count", "greater_than": 2},
+                        "message": "Count is too large",
+                    },
+                    {
+                        "id": "large_amount",
+                        "fail_when": {"column": "Amount", "greater_than": 10},
+                        "message": "Amount is too large",
+                    },
+                ]
+            }
+        )
+
+        result = validate_dataframe(df, bundle)
+
+        assert [(finding.rule_id, finding.row_index) for finding in result.findings] == [
+            ("large_count", 1),
+            ("large_amount", 1),
+            ("large_count", 2),
+            ("large_amount", 2),
+        ]
+        assert pd.api.types.is_numeric_dtype(result.working_dataframe["Count"])
+        assert pd.api.types.is_numeric_dtype(result.working_dataframe["Amount"])

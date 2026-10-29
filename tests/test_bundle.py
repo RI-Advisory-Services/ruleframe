@@ -63,6 +63,14 @@ def test_computed_columns_property_non_list_raises() -> None:
         RuleBundle(raw={"computed_columns": "not a list"})
 
 
+def test_computed_column_entry_non_dict_raises() -> None:
+    with pytest.raises(
+        BundleValidationError,
+        match="Computed column at index 0 must be a dictionary",
+    ):
+        RuleBundle(raw={"computed_columns": ["not a dictionary"]})
+
+
 # ===========================================================================
 # from_yaml_string tests
 # ===========================================================================
