@@ -393,6 +393,19 @@ def test_validate_inputs_rejects_group_sum_filter_without_column() -> None:
     )
 
 
+def test_validate_inputs_rejects_non_mapping_group_sum_filter() -> None:
+    _assert_invalid_computed_spec(
+        {
+            "type": "group_sum",
+            "group_by": "Group",
+            "value_column": "Value",
+            "filter": ["not", "a", "mapping"],
+            "id": "result",
+        },
+        r"group_sum 'filter' must be a mapping",
+    )
+
+
 def test_validate_inputs_rejects_group_sum_filter_without_equals() -> None:
     _assert_invalid_computed_spec(
         {
@@ -432,6 +445,18 @@ def test_validate_inputs_rejects_group_count_filter_without_column() -> None:
             "id": "result",
         },
         r"requires 'filter\.column'",
+    )
+
+
+def test_validate_inputs_rejects_non_mapping_group_count_filter() -> None:
+    _assert_invalid_computed_spec(
+        {
+            "type": "group_count",
+            "group_by": "Group",
+            "filter": ["not", "a", "mapping"],
+            "id": "result",
+        },
+        r"group_count 'filter' must be a mapping",
     )
 
 

@@ -84,6 +84,12 @@ def _validate_structure(raw: dict[str, Any]) -> None:
     if "computed_columns" in raw and not isinstance(raw["computed_columns"], list):
         raise BundleValidationError("computed_columns must be a list")
 
+    for i, spec in enumerate(raw.get("computed_columns", [])):
+        if not isinstance(spec, dict):
+            raise BundleValidationError(
+                f"Computed column at index {i} must be a dictionary"
+            )
+
     for i, rule in enumerate(raw.get("rules", [])):
         if not isinstance(rule, dict):
             raise BundleValidationError(f"Rule at index {i} must be a dictionary")

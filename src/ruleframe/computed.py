@@ -424,7 +424,8 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
             refs.add(group_by)
         if value_column := spec.get("value_column"):
             refs.add(value_column)
-        if filter_spec := spec.get("filter"):
+        filter_spec = spec.get("filter")
+        if isinstance(filter_spec, Mapping):
             if col := filter_spec.get("column"):
                 refs.add(col)
         return refs
@@ -432,7 +433,8 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
         refs = set()
         if group_by := spec.get("group_by"):
             refs.add(group_by)
-        if filter_spec := spec.get("filter"):
+        filter_spec = spec.get("filter")
+        if isinstance(filter_spec, Mapping):
             if col := filter_spec.get("column"):
                 refs.add(col)
         return refs
