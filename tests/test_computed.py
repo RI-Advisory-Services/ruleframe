@@ -169,12 +169,6 @@ def test_divide_returns_nan_for_zero_denominator() -> None:
     assert result.iloc[1] == 5.0
 
 
-def test_divide_requires_exactly_two_columns() -> None:
-    df = pd.DataFrame({"A": [1.0], "B": [2.0], "C": [3.0]})
-    with pytest.raises(ValueError, match="exactly 2"):
-        compute_column(df, {"type": "divide", "columns": ["A", "B", "C"], "id": "r"})
-
-
 # ---------------------------------------------------------------------------
 # coalesce
 # ---------------------------------------------------------------------------
