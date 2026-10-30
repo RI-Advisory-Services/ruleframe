@@ -843,8 +843,16 @@ def test_contains_substring_matches_case_sensitively_across_columns() -> None:
 def test_contains_substring_matches_case_sensitively_across_columns_multiple() -> None:
     df = pd.DataFrame(
         {
-            "Apples Types": ["apple", "Apple", "green apple", "Green Apple", None, "APPle pie"],
-            "Fruit Types": ["apple", "Green Apple", "orange", "grape", None, "papple"],
+            "Apples Types": [
+                "apple",
+                "Apple",
+                "green apple",
+                "Green Apple",
+                None,
+                "APPle pie",
+                "cherry",
+            ],
+            "Fruit Types": ["apple", "Green Apple", "orange", "grape", None, "papple", "MApple"],
         }
     )
     spec = {
@@ -855,7 +863,7 @@ def test_contains_substring_matches_case_sensitively_across_columns_multiple() -
         "case_sense_flag": True,
     }
     result = compute_column(df, spec)
-    assert result.tolist() == [0, 1, 0, 1, 0, 0]
+    assert result.tolist() == [0, 1, 0, 1, 0, 0, 1]
 
 
 def test_contains_substring_returns_zero_for_blank_and_nonmatching_values() -> None:
@@ -901,6 +909,19 @@ def test_contains_substring_defaults_to_case_insensitive() -> None:
     result = compute_column(df, spec)
 
     assert result.tolist() == [1, 1, 0]
+
+
+def test_contains_substring_does_not_match_null_string_representations() -> None:
+    df = pd.DataFrame({"Text": [None, pd.NA, float("nan"), "None", "<NA>"]})
+    spec = {
+        "type": "contains_substring",
+        "columns": ["Text"],
+        "substring": "None",
+        "id": "result",
+    }
+
+    result = compute_column(df, spec)
+    assert result.tolist() == [0, 0, 0, 1, 0]
 
 
 # ===========================================================================

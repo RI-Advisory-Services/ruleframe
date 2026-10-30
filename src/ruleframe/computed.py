@@ -213,6 +213,19 @@ def validate_computed_column_specs(specs: list[dict[str, Any]]) -> None:
                 raise BundleValidationError("years_since_year requires column")
             if not isinstance(years_since_year_column, str):
                 raise BundleValidationError("years_since_year 'column' must be a string")
+        if column_type == "contains_substring":
+            contains_substring_substring: str | None = spec.get("substring")
+            if not contains_substring_substring:
+                raise BundleValidationError("contains_substring requires a substring")
+            if not isinstance(contains_substring_substring, str):
+                raise BundleValidationError("contains_substring 'substring' must be a string")
+            contains_substring_case_sense_flag: bool | None = spec.get("case_sense_flag")
+            if contains_substring_case_sense_flag is not None and not isinstance(
+                contains_substring_case_sense_flag, bool
+            ):
+                raise BundleValidationError(
+                    "contains_substring 'case_sense_flag' must be a boolean"
+                )
 
 
 def apply_computed_columns(df: pd.DataFrame, specs: list[dict[str, Any]]) -> pd.DataFrame:
@@ -406,19 +419,17 @@ def _compute_contains_substring(df: pd.DataFrame, spec: dict[str, Any]) -> pd.Se
     case_sense_flag = spec.get("case_sense_flag", False)
 
     if not substring:
-        raise ValueError("contains_substring requires a substring")
+        raise BundleValidationError("contains_substring requires a substring")
 
     contains = pd.Series(False, index=df.index)
 
     for col in columns:
-        s = df[col].astype(str)
+        values = df[col].astype("string")
 
-        if case_sense_flag:
-            # Case-sensitive: "Apple" matches "Apple pie", but not "apple pie"
-            contains = contains | s.astype(str).str.contains(substring, regex=False)
-        else:
-            # Case-insensitive prefix match
-            contains = contains | s.astype(str).str.contains(substring, case=False, regex=False)
+        # Case-insensitive prefix match defaults to false if case_sense_flag is not set
+        contains = contains | values.str.contains(
+            substring, case=case_sense_flag, regex=False, na=False
+        )
 
     return contains.astype(int)
 
@@ -486,6 +497,8 @@ def required_input_columns(spec: dict[str, Any]) -> set[str]:
         if col := spec.get("column"):
             return {col}
         return set()
+    if column_type == "contains_substring":
+        return set(computed_source_columns(spec))
     return set()
 
 
